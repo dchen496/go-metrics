@@ -1,7 +1,6 @@
 package statistics
 
 import (
-	"math"
 	"time"
 )
 
@@ -20,7 +19,7 @@ func NewRate(derivatives uint64, tcs []time.Duration) *Rate {
 }
 
 func (r *Rate) SetTimeConstants(tcs []time.Duration) {
-	r.allocate(uint64(len(r.derivatives)), uint64(len(tcs)))
+	r.allocate(uint64(len(r.derivatives)-1), uint64(len(tcs)))
 	copy(r.timeConstants, tcs)
 }
 
@@ -70,7 +69,7 @@ func (r *Rate) Set(v int64, t time.Time) {
 		}
 
 		for tcInd, tc := range r.timeConstants {
-			k := math.Exp(-1.0 * float64(t.Sub(r.lastUpdated)) / float64(tc))
+			k := float64(tc) / float64(tc+t.Sub(r.lastUpdated))
 			for order := range r.derivatives {
 				r.derivatives[order][tcInd+1] *= k
 				r.derivatives[order][tcInd+1] += (1.0 - k) * r.derivatives[order][0]
