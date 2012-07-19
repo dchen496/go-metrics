@@ -8,7 +8,7 @@ import (
 
 const (
 	testRandSeed          = 1234
-	testNumElements       = 2000
+	testNumElements       = 1000
 	testBenchmarkElements = 1000000
 )
 
@@ -65,6 +65,14 @@ func testTreeStructure(t *testing.T, rb *Tree) {
 		if rb.root.black != true {
 			t.Errorf("Tree root is not black.")
 		}
+
+		if n.left != rb.none && n.left.key > n.key {
+			t.Errorf("Tree is not in the right order")
+		}
+
+		if n.right != rb.none && n.right.key < n.key {
+			t.Errorf("Tree is not in the right order")
+		}
 	}
 }
 
@@ -88,6 +96,18 @@ func TestInsert(t *testing.T) {
 	for _, v := range p {
 		rb.Insert(int64(v)*10, fmt.Sprint(v*10))
 		testTreeStructure(t, rb)
+	}
+}
+
+func TestDuplicateInsert(t *testing.T) {
+	rb := New()
+	rand.Seed(testRandSeed)
+	for i := 0; i < 10; i++ {
+		p := rand.Perm(testNumElements)
+		for _, v := range p {
+			rb.Insert(int64(v)*10, fmt.Sprint(v*10))
+			testTreeStructure(t, rb)
+		}
 	}
 }
 
