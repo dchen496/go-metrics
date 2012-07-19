@@ -44,11 +44,12 @@ var testRateDerivatives = [][]float64{
 
 func TestRateDerivatives(t *testing.T) {
 	r := testRateInit()
-	for i := uint64(0); i <= r.MaxDerivativeOrder(); i++ {
-		for j := uint64(0); j <= r.NumTimeConstants(); j++ {
+	d := r.Derivatives()
+	for i, order := range d {
+		for j, val := range order {
 			testCompare(t,
 				fmt.Sprintf("rate Derivatives order %d time constant %d", i, j),
-				r.Derivative(i, j), testRateDerivatives[i][j],
+				val, testRateDerivatives[i][j],
 			)
 		}
 	}

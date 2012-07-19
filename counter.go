@@ -24,7 +24,10 @@ type Counter struct {
 }
 
 type CounterSnapshot struct {
-	*Counter
+	Value         int64
+	LastUpdated   time.Time
+	TimeConstants []time.Duration
+	Derivatives   [][]float64
 }
 
 func newCounter() *Counter {
@@ -78,61 +81,14 @@ func (c *Counter) set(v int64, now time.Time) {
 
 func (c *Counter) Snapshot() CounterSnapshot {
 	c.lock.RLock()
-	return CounterSnapshot{c}
-}
 
-func (c *CounterSnapshot) Unsnapshot() {
-	c.lock.RUnlock()
-	c.Counter = nil
-}
-
-var CounterDefaultProcessOptions = CounterProcessOptions{
-	Derivatives: true,
-}
-
-func (c *Counter) Process(p Processor, name string,
-	options interface{}) interface{} {
-
-	snap := c.Snapshot()
-	// don't make a mess if the something panics
-	defer snap.Unsnapshot()
-
-	var o *CounterProcessOptions
-	switch v := options.(type) {
-	case nil:
-		o = &CounterDefaultProcessOptions
-	case *MetricProcessOptions:
-		o = &(v.CounterProcessOptions)
-	case *CounterProcessOptions:
-		o = v
-	default:
-		panic("invalid option type")
+	r := CounterSnapshot{
+		Value:         c.r.Value(),
+		LastUpdated:   c.r.LastUpdated(),
+		TimeConstants: c.r.TimeConstants(),
+		Derivatives:   c.r.Derivatives(),
 	}
-	return p.ProcessCounter(snap, name, o)
-}
 
-func (c *CounterSnapshot) Value() int64 {
-	return c.r.Value()
-}
-
-func (c *CounterSnapshot) LastUpdated() time.Time {
-	return c.r.LastUpdated()
-}
-
-func (c *CounterSnapshot) NumTimeConstants() uint64 {
-	return c.r.NumTimeConstants()
-}
-
-func (c *CounterSnapshot) TimeConstant(index uint64) time.Duration {
-	return c.r.TimeConstant(index)
-}
-
-func (c *CounterSnapshot) MaxDerivativeOrder() uint64 {
-	return c.r.MaxDerivativeOrder()
-}
-
-func (c *CounterSnapshot) Derivative(order uint64,
-	timeConstantIndex uint64) float64 {
-
-	return c.r.Derivative(order, timeConstantIndex)
+	c.lock.RUnlock()
+	return r
 }

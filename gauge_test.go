@@ -31,36 +31,13 @@ func TestGaugeUpdate(t *testing.T) {
 
 	expected := fmt.Sprint(5, true)
 	s := g.Snapshot()
-	value := s.Value().String()
+	value := s.Value.String()
 	if value != expected {
 		t.Errorf("Wrong data in Gauge.Value after autoupdate: expected %s, got %s",
 			expected, value)
 	}
-	if s.LastUpdated() != testTime {
+	if s.LastUpdated != testTime {
 		t.Errorf("Counter updated time is to %v, expected %v",
-			s.LastUpdated(), testTime)
-	}
-
-	s.Unsnapshot()
-}
-
-func TestGaugeProcess(t *testing.T) {
-	g := testGaugeInit()
-
-	opt := &GaugeProcessOptions{}
-	tp := &testProcessor{}
-	out := g.Process(tp, "test", opt)
-	switch out.(int) {
-	case 3:
-	case -1:
-		t.Errorf("Processor failed, wrong name")
-	case -2:
-		t.Errorf("Processor failed, wrong value")
-	case -4:
-		t.Errorf("Processor failed, wrong time")
-	case 1, 2:
-		t.Errorf("Processor failed, wrong processor")
-	default:
-		t.Errorf("Processor failed, expected %v, got %v", 3, out)
+			s.LastUpdated, testTime)
 	}
 }

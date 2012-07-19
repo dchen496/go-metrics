@@ -34,13 +34,12 @@ func TestDistributionAdd(t *testing.T) {
 		t.Errorf("Number not added to times tree, got count = %d, expected %d",
 			d.times.Size(), 4)
 	}
-	snap := d.Snapshot()
-	if d.s.Count() != 5 {
+	if d.size() != 5 {
 		t.Errorf("Number not added to Sample, got count = %d, expected %d",
-			d.s.Count(), 4)
+			d.size(), 4)
 	}
 
-	s := snap.Samples(0, nil, nil)
+	s := d.Samples(0, nil, nil)
 	expected := []int64{12, -9, 30, 12, 9}
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Wrong sample slice, got %v expected %v", s, expected)
@@ -62,14 +61,12 @@ func TestDistributionProbabilisticAdd(t *testing.T) {
 		}
 
 		d.add(9, testTime.Add(3), i)
-		snap := d.Snapshot()
-		s := snap.Samples(0, nil, nil)
+		s := d.Samples(0, nil, nil)
 		expected := []int64{12, -9, 30, 12}
 		if !testCompareSlices(s, expected) {
 			skip++
 		}
 
-		snap.Unsnapshot()
 	}
 	if skip != 4 {
 		t.Errorf("Wrong number of skipped adds, got %d expected %d", skip, 4)
@@ -82,9 +79,9 @@ func TestDistributionSetMaxSampleSize(t *testing.T) {
 	for i := int64(0); i < 100; i++ {
 		d.add(i, testTime.Add(3), 0)
 	}
-	if d.s.Count() != 50 {
+	if d.size() != 50 {
 		t.Errorf("Wrong number of samples after setting maximum, "+
-			"got %d expected %d", d.s.Count(), 50)
+			"got %d expected %d", d.size(), 50)
 	}
 	if math.Abs(d.populationSize-104.0) > 1e-13 {
 		t.Errorf("Wrong population size after setting maximum, "+
@@ -92,9 +89,9 @@ func TestDistributionSetMaxSampleSize(t *testing.T) {
 	}
 
 	d.SetMaxSampleSize(25)
-	if d.s.Count() != 25 {
+	if d.size() != 25 {
 		t.Errorf("Wrong number of samples after setting maximum,"+
-			" got %d expected %d", d.s.Count(), 25)
+			" got %d expected %d", d.size(), 25)
 	}
 	if math.Abs(d.populationSize-52.0) > 1e-13 {
 		t.Errorf("Wrong population size after setting maximum, "+
@@ -106,35 +103,35 @@ func TestDistributionPrune(t *testing.T) {
 	d := testDistributionInit()
 
 	d.prune(testTime.Add(0).Add(d.window))
-	if d.s.Count() != 4 {
+	if d.size() != 4 {
 		t.Errorf("Wrong size after fake pruning, got %d expected %d",
-			d.s.Count(), 4)
+			d.size(), 4)
 	}
 
 	d.prune(testTime.Add(1).Add(d.window))
-	if d.s.Count() != 3 {
+	if d.size() != 3 {
 		t.Errorf("Wrong size after first pruning, got %d expected %d",
-			d.s.Count(), 3)
+			d.size(), 3)
 	}
 
 	d.prune(testTime.Add(1).Add(d.window))
-	if d.s.Count() != 3 {
+	if d.size() != 3 {
 		t.Errorf("Wrong size after repeated first pruning, got %d expected %d",
-			d.s.Count(), 3)
+			d.size(), 3)
 	}
 
 	d.prune(testTime.Add(3).Add(d.window))
-	if d.s.Count() != 0 {
+	if d.size() != 0 {
 		t.Errorf("Wrong size after second pruning, got %d expected %d",
-			d.s.Count(), 0)
+			d.size(), 0)
 	}
 
 	d = testDistributionInit()
 	d.window = 1
 	d.add(3, testTime.Add(3), 0)
-	if d.s.Count() != 2 {
+	if d.size() != 2 {
 		t.Errorf("Wrong size after prune during add, got %d expected %d",
-			d.s.Count(), 2)
+			d.size(), 2)
 	}
 }
 
@@ -142,8 +139,7 @@ func TestDistributionRemoveFromPopulation(t *testing.T) {
 	d := testDistributionInit()
 	d.removeFromPopulation(d.times.FindByRank(2))
 
-	snap := d.Snapshot()
-	s := snap.Samples(0, nil, nil)
+	s := d.Samples(0, nil, nil)
 	expected := []int64{12, -9, 12}
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Wrong samples after remove, got %v expected %v", s, expected)
@@ -155,30 +151,6 @@ func TestDistributionRemoveFromPopulation(t *testing.T) {
 	}
 }
 
-func TestDistributionProcess(t *testing.T) {
-	d := testDistributionInit()
-	opt := &DistributionProcessOptions{
-		Data:  true,
-		Limit: 1234,
-		Stats: false,
-	}
-	tp := &testProcessor{}
-	out := d.Process(tp, "test", opt)
-	switch out.(int) {
-	case 2:
-	case -1:
-		t.Errorf("Distribution processor failed, wrong name")
-	case -2:
-		t.Errorf("Distribution processor failed, wrong count")
-	case -3:
-		t.Errorf("Distribution processor failed, wrong set of options")
-	case 1, 3:
-		t.Errorf("Distribution processor failed, wrong processor")
-	default:
-		t.Errorf("Distribution processor failed, expected %v, got %v", 2, out)
-	}
-}
-
 func TestDistributionSamples(t *testing.T) {
 	d := testDistributionInit()
 	d.Reset()
@@ -187,9 +159,8 @@ func TestDistributionSamples(t *testing.T) {
 		d.add(i, testTime.Add(time.Duration(i)), 0)
 		baseExpected[i] = i
 	}
-	snap := d.Snapshot()
 
-	s := snap.Samples(0, nil, nil)
+	s := d.Samples(0, nil, nil)
 	if !testCompareSlices(s, baseExpected) {
 		t.Errorf("Samples (all) returned wrong slice, got %v expected %v",
 			s, baseExpected)
@@ -198,28 +169,28 @@ func TestDistributionSamples(t *testing.T) {
 	beginTime := testTime.Add(25)
 	endTime := testTime.Add(75)
 
-	s = snap.Samples(0, &beginTime, nil)
+	s = d.Samples(0, &beginTime, nil)
 	expected := baseExpected[25:]
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Samples (begin) returned wrong slice, got %v expected %v",
 			s, expected)
 	}
 
-	s = snap.Samples(0, nil, &endTime)
+	s = d.Samples(0, nil, &endTime)
 	expected = baseExpected[:75]
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Samples (end) returned wrong slice, got %v expected %v",
 			s, expected)
 	}
 
-	s = snap.Samples(0, &beginTime, &endTime)
+	s = d.Samples(0, &beginTime, &endTime)
 	expected = baseExpected[25:75]
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Samples (begin, end) returned wrong slice, got %v expected %v",
 			s, expected)
 	}
 
-	s = snap.Samples(30, &beginTime, &endTime)
+	s = d.Samples(30, &beginTime, &endTime)
 	if len(s) != 30 {
 		t.Errorf("Samples (limit) returned wrong slice size, got %d expected %d",
 			len(s), 30)

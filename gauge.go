@@ -16,7 +16,8 @@ type Gauge struct {
 }
 
 type GaugeSnapshot struct {
-	*Gauge
+	Value       Gaugable
+	LastUpdated time.Time
 }
 
 type Gaugable interface {
@@ -57,40 +58,12 @@ func (g *Gauge) update(now time.Time) {
 
 func (g *Gauge) Snapshot() GaugeSnapshot {
 	g.lock.RLock()
-	return GaugeSnapshot{g}
-}
 
-func (g *GaugeSnapshot) Unsnapshot() {
-	g.lock.RUnlock()
-	g.Gauge = nil
-}
-
-var GaugeDefaultProcessOptions = GaugeProcessOptions{}
-
-func (g *Gauge) Process(p Processor, name string,
-	options interface{}) interface{} {
-
-	snap := g.Snapshot()
-	defer snap.Unsnapshot()
-
-	var o *GaugeProcessOptions
-	switch v := options.(type) {
-	case nil:
-		o = &GaugeDefaultProcessOptions
-	case *MetricProcessOptions:
-		o = &(v.GaugeProcessOptions)
-	case *GaugeProcessOptions:
-		o = v
-	default:
-		panic("invalid option type")
+	r := GaugeSnapshot{
+		Value:       g.value,
+		LastUpdated: g.lastUpdated,
 	}
-	return p.ProcessGauge(snap, name, o)
-}
 
-func (g *GaugeSnapshot) Value() Gaugable {
-	return g.value
-}
-
-func (g *GaugeSnapshot) LastUpdated() time.Time {
-	return g.lastUpdated
+	g.lock.RUnlock()
+	return r
 }

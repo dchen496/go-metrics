@@ -82,20 +82,19 @@ func (r *Rate) Set(v int64, t time.Time) {
 	r.lastUpdated = t
 }
 
-func (r *Rate) NumTimeConstants() uint64 {
-	return uint64(len(r.timeConstants))
-}
-
-func (r *Rate) TimeConstant(index uint64) time.Duration {
-	return r.timeConstants[index]
-}
-
-func (r *Rate) MaxDerivativeOrder() uint64 {
-	return uint64(len(r.derivatives) - 1)
+func (r *Rate) TimeConstants() []time.Duration {
+	m := make([]time.Duration, len(r.timeConstants))
+	copy(m, r.timeConstants)
+	return m
 }
 
 // zeroth time constant is the instantaneous rate of change, 
 // the rest are indexed starting from 1
-func (r *Rate) Derivative(order uint64, timeConstantIndex uint64) float64 {
-	return r.derivatives[order][timeConstantIndex]
+func (r *Rate) Derivatives() [][]float64 {
+	m := make([][]float64, len(r.derivatives))
+	for i := range m {
+		m[i] = make([]float64, len(r.derivatives[i]))
+		copy(m[i], r.derivatives[i])
+	}
+	return m
 }

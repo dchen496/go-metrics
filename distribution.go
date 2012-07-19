@@ -13,14 +13,8 @@ const (
 	distributionDefaultWindow     = time.Minute * 10
 )
 
-var DistributionDefaultPercentiles = []float64{
-	0.0, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999, 0.9999, 1.0
-}
-
-var DistributionDefaultProcessOptions = DistributionProcessOptions{
-	Data:        false,
-	Stats:       true,
-	Percentiles: DistributionDefaultPercentiles,
+var DistributionPercentiles = []float64{
+	0.0, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999, 0.9999, 1.0,
 }
 
 // Distribution stores collected data samples.
@@ -40,7 +34,14 @@ type Distribution struct {
 }
 
 type DistributionSnapshot struct {
-	*Distribution
+	Count             uint64
+	Mean              float64
+	Variance          float64
+	StandardDeviation float64
+	Skewness          float64
+	Kurtosis          float64
+	Percentiles       []int64
+	PopulationSize    float64
 }
 
 func newDistribution() *Distribution {
@@ -63,6 +64,7 @@ func (d *Distribution) Reset() {
 }
 
 func (d *Distribution) size() uint64 {
+	// d.times.Size() == d.s.Count() 
 	return d.times.Size()
 }
 
@@ -114,6 +116,12 @@ func (d *Distribution) add(v int64, now time.Time, remove uint64) {
 	d.prune(now)
 }
 
+func (d *Distribution) Prune() {
+	d.lock.Lock()
+	d.prune(time.Now())
+	d.lock.Unlock()
+}
+
 func (d *Distribution) prune(now time.Time) {
 	if d.window == 0 {
 		return
@@ -138,78 +146,39 @@ func (d *Distribution) removeFromPopulation(n *rbtree.Node) {
 }
 
 func (d *Distribution) Snapshot() DistributionSnapshot {
-	d.lock.Lock()
-	d.prune(time.Now())
-	// not really the best way to loosen the lock
-	d.lock.Unlock()
+	d.Prune()
+
 	d.lock.RLock()
-	return DistributionSnapshot{d}
-}
 
-func (d *DistributionSnapshot) Unsnapshot() {
+	r := DistributionSnapshot{
+		Count:             d.s.Count(),
+		Mean:              d.s.Mean(),
+		Variance:          d.s.Variance(),
+		StandardDeviation: d.s.StandardDeviation(),
+		Skewness:          d.s.Skewness(),
+		Kurtosis:          d.s.Kurtosis(),
+		Percentiles:       make([]int64, len(DistributionPercentiles)),
+		PopulationSize:    d.populationSize,
+	}
+	for i, v := range DistributionPercentiles {
+		r.Percentiles[i] = d.s.Percentile(v)
+	}
+
 	d.lock.RUnlock()
-	d.Distribution = nil
+	return r
 }
 
-func (d *Distribution) Process(p Processor, name string,
-	options interface{}) interface{} {
-
-	snap := d.Snapshot()
-	defer snap.Unsnapshot()
-
-	var o *DistributionProcessOptions
-	switch v := options.(type) {
-	case nil:
-		o = &DistributionDefaultProcessOptions
-	case *MetricProcessOptions:
-		o = &(v.DistributionProcessOptions)
-	case *DistributionProcessOptions:
-		o = v
-	default:
-		panic("invalid option type")
-	}
-	if o.Percentiles == nil {
-		o.Percentiles = DistributionDefaultPercentiles
-	}
-	return p.ProcessDistribution(snap, name, o)
-}
-
-func (d *DistributionSnapshot) Count() uint64 {
-	return d.s.Count()
-}
-
-func (d *DistributionSnapshot) Mean() float64 {
-	return d.s.Mean()
-}
-
-func (d *DistributionSnapshot) Variance() float64 {
-	return d.s.Variance()
-}
-
-func (d *DistributionSnapshot) StandardDeviation() float64 {
-	return d.s.StandardDeviation()
-}
-
-func (d *DistributionSnapshot) Skewness() float64 {
-	return d.s.Skewness()
-}
-
-func (d *DistributionSnapshot) Kurtosis() float64 {
-	return d.s.Kurtosis()
-}
-
-func (d *DistributionSnapshot) Percentile(p float64) int64 {
-	return d.s.Percentile(p)
-}
-
-func (d *DistributionSnapshot) Samples(limit uint64,
+func (d *Distribution) Samples(limit uint64,
 	begin, end *time.Time) []int64 {
 
-	if d.Count() == 0 {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+
+	if d.size() == 0 {
 		return make([]int64, 0)
 	}
-	if limit > d.Count() || limit == 0 {
-		limit = d.Count()
+	if limit > d.size() || limit == 0 {
+		limit = d.size()
 	}
 
 	var beginNode, endNode *rbtree.Node
@@ -218,21 +187,21 @@ func (d *DistributionSnapshot) Samples(limit uint64,
 	if begin != nil {
 		beginNode = d.times.LowerBound(int64(begin.Sub(d.timeBase)))
 	}
-	if beginNode == nil {
-		beginNode = d.times.FindByRank(0)
-		beginRank = 0
-	} else {
+	if beginNode != nil {
 		beginRank = d.times.Rank(beginNode)
+	} else {
+		beginRank = 0
+		beginNode = d.times.FindByRank(beginRank)
 	}
 
 	if end != nil {
 		endNode = d.times.UpperBound(int64(end.Sub(d.timeBase)))
 	}
-	if endNode == nil {
-		endNode = d.times.FindByRank(d.Count() - 1)
-		endRank = d.Count() - 1
-	} else {
+	if endNode != nil {
 		endRank = d.times.Rank(endNode)
+	} else {
+		endRank = d.size() - 1
+		endNode = d.times.FindByRank(endRank)
 	}
 
 	if endRank < beginRank {
