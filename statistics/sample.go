@@ -90,6 +90,9 @@ func (s *Sample) Mean() float64 {
 }
 
 func (s *Sample) Variance() float64 {
+	if s.Count() == 1 {
+		return 0
+	}
 	return s.secondCMtimesN / float64(s.Count()-1)
 }
 
@@ -98,11 +101,17 @@ func (s *Sample) StandardDeviation() float64 {
 }
 
 func (s *Sample) Skewness() float64 {
+	if s.secondCMtimesN == 0.0 {
+		return 0
+	}
 	r := math.Sqrt(float64(s.Count())) * s.thirdCMtimesN
 	return r / math.Pow(s.secondCMtimesN, 1.5)
 }
 
 func (s *Sample) Kurtosis() float64 {
+	if s.secondCMtimesN == 0.0 {
+		return 0
+	}
 	r := float64(s.Count()) * s.fourthCMtimesN
 	return r / s.secondCMtimesN / s.secondCMtimesN
 }
