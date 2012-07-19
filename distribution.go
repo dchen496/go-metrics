@@ -14,7 +14,7 @@ const (
 )
 
 var DistributionPercentiles = []float64{
-	0.0, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999, 0.9999, 1.0,
+	0.0, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999, 1.0,
 }
 
 // Distribution stores collected data samples.
