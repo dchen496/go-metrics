@@ -48,6 +48,14 @@ func (r *Registry) NewCounter(tyep interface{}, name string) *Counter {
 	return nil
 }
 
+func (r *Registry) NewMeter(tyep interface{}, name string) *Meter {
+	m := newMeter()
+	if r.register(tyep, name, m) {
+		return m
+	}
+	return nil
+}
+
 func (r *Registry) NewDistribution(tyep interface{},
 	name string) *Distribution {
 
@@ -87,6 +95,8 @@ func (r *Registry) List() [][2]string {
 			t = "distribution"
 		case *Gauge:
 			t = "gauge"
+		case *Meter:
+			t = "meter"
 		}
 		list[i][1] = t
 		i++
@@ -133,4 +143,8 @@ func NewDistribution(tyep interface{}, name string) *Distribution {
 
 func NewGauge(tyep interface{}, name string) *Gauge {
 	return DefaultRegistry.NewGauge(tyep, name)
+}
+
+func NewMeter(tyep interface{}, name string) *Meter {
+	return DefaultRegistry.NewMeter(tyep, name)
 }

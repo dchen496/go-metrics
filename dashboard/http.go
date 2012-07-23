@@ -68,6 +68,10 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 
 		toMarshal.Type = "gauge"
 		toMarshal.Value = stringified
+
+	case *metrics.Meter:
+		toMarshal.Type = "meter"
+		toMarshal.Value = m.Snapshot()
 	}
 
 	resp, err := json.MarshalIndent(toMarshal, "", "\t")

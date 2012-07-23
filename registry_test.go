@@ -13,7 +13,7 @@ func testRegistryInitialize() *Registry {
 	r.NewCounter(t, "internal_type")
 	r.NewDistribution(&t, "ptr_to_internal_type")
 	r.NewGauge(testTime, "external_type")
-	r.NewGauge(&testTime, "ptr_to_external_type")
+	r.NewMeter(&testTime, "ptr_to_external_type")
 	return r
 }
 
