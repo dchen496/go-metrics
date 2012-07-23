@@ -23,16 +23,14 @@ func (h *HTTPServer) handlerIndex(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, h.registry)
 }
 
-type MarshalGaugeSnapshot struct {
-	Value       string
-	LastUpdated time.Time
-}
-
 func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 
 	metric := h.registry.FindS(name)
-	var toMarshal interface{}
+	var toMarshal struct {
+		Type  string
+		Value interface{}
+	}
 
 	switch m := metric.(type) {
 	case nil:
@@ -40,7 +38,8 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case *metrics.Counter:
-		toMarshal = m.Snapshot()
+		toMarshal.Type = "counter"
+		toMarshal.Value = m.Snapshot()
 
 	case *metrics.Distribution:
 		if r.FormValue("samples") == "true" {
@@ -51,17 +50,24 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 			var limit uint64
 			fmt.Sscanf(r.FormValue("limit"), "%d", &limit)
 
-			toMarshal = m.Samples(limit, begin, end)
+			toMarshal.Type = "distribution_sample"
+			toMarshal.Value = m.Samples(limit, begin, end)
 		} else {
-			toMarshal = m.Snapshot()
+			toMarshal.Type = "distribution"
+			toMarshal.Value = m.Snapshot()
 		}
 
 	case *metrics.Gauge:
 		snapshot := m.Snapshot()
-		toMarshal = MarshalGaugeSnapshot{
-			Value:       snapshot.Value.String(),
-			LastUpdated: snapshot.LastUpdated,
+		var stringified struct {
+			Value       string
+			LastUpdated time.Time
 		}
+		stringified.Value = snapshot.Value.String()
+		stringified.LastUpdated = snapshot.LastUpdated
+
+		toMarshal.Type = "gauge"
+		toMarshal.Value = stringified
 	}
 
 	resp, err := json.MarshalIndent(toMarshal, "", "\t")

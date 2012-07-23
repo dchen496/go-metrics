@@ -73,12 +73,22 @@ func (r *Registry) Name() string {
 	return ret
 }
 
-func (r *Registry) List() []string {
+func (r *Registry) List() [][2]string {
 	r.lock.RLock()
-	list := make([]string, len(r.metrics))
+	list := make([][2]string, len(r.metrics))
 	i := 0
-	for name, _ := range r.metrics {
-		list[i] = name
+	for name, metric := range r.metrics {
+		list[i][0] = name
+		var t string
+		switch metric.(type) {
+		case *Counter:
+			t = "counter"
+		case *Distribution:
+			t = "distribution"
+		case *Gauge:
+			t = "gauge"
+		}
+		list[i][1] = t
 		i++
 	}
 	r.lock.RUnlock()
