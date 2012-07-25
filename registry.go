@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// Registry stores metrics and their unique names.
 type Registry struct {
 	name    string
 	metrics map[string]Metric
@@ -40,6 +41,7 @@ func (r *Registry) register(tyep interface{}, name string, m Metric) bool {
 	return true
 }
 
+// NewCounter creates a counter and registers it with the receiver.
 func (r *Registry) NewCounter(tyep interface{}, name string) *Counter {
 	m := newCounter()
 	if r.register(tyep, name, m) {
@@ -48,6 +50,7 @@ func (r *Registry) NewCounter(tyep interface{}, name string) *Counter {
 	return nil
 }
 
+// NewMeter creates a meter and registers it with the receiver.
 func (r *Registry) NewMeter(tyep interface{}, name string) *Meter {
 	m := newMeter()
 	if r.register(tyep, name, m) {
@@ -56,6 +59,7 @@ func (r *Registry) NewMeter(tyep interface{}, name string) *Meter {
 	return nil
 }
 
+// NewDistribuion creates a distribution and registers it with the receiver.
 func (r *Registry) NewDistribution(tyep interface{},
 	name string) *Distribution {
 
@@ -66,6 +70,7 @@ func (r *Registry) NewDistribution(tyep interface{},
 	return nil
 }
 
+// NewGauge creates a gauge and registers it with the receiver.
 func (r *Registry) NewGauge(tyep interface{}, name string) *Gauge {
 	m := newGauge()
 	if r.register(tyep, name, m) {
@@ -81,6 +86,8 @@ func (r *Registry) Name() string {
 	return ret
 }
 
+// List returns a slice of arrays. Each array contains a metric name at
+// the zeroth index and its type in the first.
 func (r *Registry) List() [][2]string {
 	r.lock.RLock()
 	list := make([][2]string, len(r.metrics))
@@ -105,6 +112,8 @@ func (r *Registry) List() [][2]string {
 	return list
 }
 
+// ListMetrics returns a map with keys representing metric names
+// and values containing the corresponding metric.
 func (r *Registry) ListMetrics() map[string]Metric {
 	list := make(map[string]Metric)
 	r.lock.RLock()
@@ -120,9 +129,9 @@ func (r *Registry) Find(tyep interface{}, name string) Metric {
 	return r.FindS(fmt.Sprintf("%s.%s", typeName, name))
 }
 
-func (r *Registry) FindS(name string) Metric {
+func (r *Registry) FindS(fullname string) Metric {
 	r.lock.RLock()
-	ret := r.metrics[name]
+	ret := r.metrics[fullname]
 	r.lock.RUnlock()
 	return ret
 }
@@ -133,18 +142,26 @@ func init() {
 	DefaultRegistry = NewRegistry("default")
 }
 
+// NewCounter creates a counter and registers it with the 
+// default registry.
 func NewCounter(tyep interface{}, name string) *Counter {
 	return DefaultRegistry.NewCounter(tyep, name)
 }
 
+// NewDistribution creates a distribution and registers it with the 
+// default registry.
 func NewDistribution(tyep interface{}, name string) *Distribution {
 	return DefaultRegistry.NewDistribution(tyep, name)
 }
 
+// NewGauge creates a gauge and registers it with the 
+// default registry.
 func NewGauge(tyep interface{}, name string) *Gauge {
 	return DefaultRegistry.NewGauge(tyep, name)
 }
 
+// NewMeter creates a meter and registers it with the 
+// default registry.
 func NewMeter(tyep interface{}, name string) *Meter {
 	return DefaultRegistry.NewMeter(tyep, name)
 }

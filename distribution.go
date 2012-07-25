@@ -13,6 +13,10 @@ const (
 	distributionDefaultWindow     = time.Minute * 10
 )
 
+// The Percentiles slice in a DistributionSnapshot
+// contains the value of these percentiles in a Distribution. 
+// 0.0 is equivalent to minimum, 0.5 is equivalent to median, 
+// and 1.0 is equivalent to maximum.
 var DistributionPercentiles = []float64{
 	0.0, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999, 1.0,
 }
@@ -20,9 +24,7 @@ var DistributionPercentiles = []float64{
 // Distribution stores collected data samples.
 // Old samples are pruned based on a specified length of time
 // whenever the Distribution is written to, or before a
-// DistributionValue is generated.
-// Distribution also computes certain statistics on the fly for
-// fast retrieval.
+// DistributionSnapshot is generated.
 type Distribution struct {
 	s              *statistics.Sample
 	times          *rbtree.Tree
@@ -64,10 +66,12 @@ func (d *Distribution) Reset() {
 }
 
 func (d *Distribution) size() uint64 {
-	// d.times.Size() == d.s.Count() 
+	// d.times.Size() == d.s.Count() is always true
 	return d.times.Size()
 }
 
+// SetMaxSampleSize sets how many sample elements are kept.
+// The default is 1000 elements.
 func (d *Distribution) SetMaxSampleSize(n uint64) {
 	d.lock.Lock()
 	d.maxSampleSize = n
@@ -79,6 +83,11 @@ func (d *Distribution) SetMaxSampleSize(n uint64) {
 	d.lock.Unlock()
 }
 
+// SetWindow sets the length of time for which a element
+// will be kept before a call to Prune removes it. Note that
+// elements are not guaranteed to be kept if the Distribution's
+// Count exceeds the limit set in SetMaxSampleSize.
+// The default is 10 minutes.
 func (d *Distribution) SetWindow(nsec time.Duration) {
 	d.lock.Lock()
 	d.window = nsec
@@ -86,7 +95,9 @@ func (d *Distribution) SetWindow(nsec time.Duration) {
 	d.lock.Unlock()
 }
 
-// Add inserts a sample into a Distribution.
+// Add might insert/replace a sample into a Distribution, following 
+// a random algorithm to maintain the maximum sample size set in 
+// SetMaxSampleSize.
 func (d *Distribution) Add(v int64) {
 	maxRand := int64(d.populationSize)
 	if maxRand == 0 {
@@ -116,6 +127,8 @@ func (d *Distribution) add(v int64, now time.Time, remove uint64) {
 	d.prune(now)
 }
 
+// Prune removes old samples from a Distribution, according
+// to the length of time set by SetWindow.
 func (d *Distribution) Prune() {
 	d.lock.Lock()
 	d.prune(time.Now())
@@ -145,6 +158,7 @@ func (d *Distribution) removeFromPopulation(n *rbtree.Node) {
 	d.remove(n)
 }
 
+// Snapshot returns various statistics on the Distribution.
 func (d *Distribution) Snapshot() DistributionSnapshot {
 	d.Prune()
 
@@ -168,6 +182,10 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 	return r
 }
 
+// Samples returns up to limit sample elements (unlimited if limit = 0)
+// from the Distribution. These are taken between a time interval
+// specified with begin and end. These arguments may also be passed
+// nil, to indicate the lack of such a bound.
 func (d *Distribution) Samples(limit uint64,
 	begin, end *time.Time) []int64 {
 
@@ -233,11 +251,23 @@ func (d *Distribution) Samples(limit uint64,
 }
 
 // Robert Floyd's sampling algorithm
-// s will contain (limit) randomly chosen, unique values
-// chosen from [0, max)
+// The returned map will contain (num) randomly chosen, 
+// unique values chosen from [0, max).
+//
+// Some explanation: for n in [0, max - num), the probability
+// of n not being chosen is the product of i/(i+1) as i
+// ranges from max - num to max - 1, which simplifies to 
+// (max - num) / max.
+//
+// For n in [max - num, max) the probability of not being
+// chosen is 1 when i < n, (max - num)/(n + 1) when i = n, 
+// and (i)/(i+1) when i > n. Multiplying all these together
+// again results in (max - num) / max for the probability of
+// not being included. 
 func randCombination(max, num uint64) map[uint64]bool {
 	s := make(map[uint64]bool)
 	for i := max - num; i < max; i++ {
+		// generate r in [0, i]
 		r := uint64(rand.Int63n(int64(i + 1)))
 		if s[r] {
 			s[i] = true

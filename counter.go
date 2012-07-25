@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// Counter contains a single int64, which may be incremented,
+// decremented or set. 
 type Counter struct {
 	value       int64
 	lastUpdated time.Time
@@ -20,6 +22,8 @@ func newCounter() *Counter {
 	return &Counter{}
 }
 
+// Reset sets the Counter to zero and sets the last updated
+// time to the zero time.
 func (c *Counter) Reset() {
 	c.lock.Lock()
 	c.value = 0
@@ -45,6 +49,7 @@ func (c *Counter) Set(v int64) {
 	c.lock.Unlock()
 }
 
+// Snapshot returns the Counter's value.
 func (c *Counter) Snapshot() CounterSnapshot {
 	c.lock.RLock()
 

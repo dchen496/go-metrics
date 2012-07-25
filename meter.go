@@ -16,6 +16,10 @@ var defaultMeterTimeConstants = []time.Duration{
 	15 * time.Minute,
 }
 
+// Meter stores a int64 value like a Counter.
+// Unlike a Counter, a Meter also calculates instantaneous rate of
+// change, as well as 1-min, 5-min and 15-min exponentially weighted
+// averages of the value and the rate of change.
 type Meter struct {
 	r    *statistics.Rate
 	lock sync.RWMutex
@@ -35,6 +39,7 @@ func newMeter() *Meter {
 	}
 }
 
+// Reset clears a Meter's values.
 func (m *Meter) Reset() {
 	m.lock.Lock()
 	m.r.Reset()
@@ -65,6 +70,12 @@ func (m *Meter) set(v int64, now time.Time) {
 	m.lock.Unlock()
 }
 
+// Snapshot returns the Meter's value along with
+// the rate of change and exponentionally weighted averages.
+// The Derivatives array is first indexed by derivative order
+// (0 = value, 1 = rate of change), then by the length of time
+// for the average (0 = instantaneous, 1 = 1 minute,
+// 2 = 5 minutes, 3 = 15 minutes).
 func (m *Meter) Snapshot() MeterSnapshot {
 	m.lock.RLock()
 

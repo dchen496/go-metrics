@@ -27,6 +27,8 @@ func (t *Tree) Size() uint64 {
 	return t.root.size
 }
 
+// FindByRank returns the node with the specified rank,
+// or nil if that node does not exist.
 func (t *Tree) FindByRank(rank uint64) *Node {
 	if rank >= t.root.size {
 		return nil
@@ -46,6 +48,9 @@ func (t *Tree) FindByRank(rank uint64) *Node {
 	return n
 }
 
+// Find returns the node with the specified key. If multiple nodes
+// have the same key, the one with the lowest rank is returned.
+// Find returns nil if no node with the specified key exists.
 func (t *Tree) Find(key int64) *Node {
 	n := t.LowerBound(key)
 	if n.key != key {
@@ -54,7 +59,9 @@ func (t *Tree) Find(key int64) *Node {
 	return n
 }
 
-//inclusive, lowest n-index
+// LowerBound finds the node with the smallest key greater than
+// or equal to the argument. If multiple nodes have the same
+// key, the one with the lowest rank is returned.
 func (t *Tree) LowerBound(key int64) *Node {
 	var result *Node
 	for n := t.root; n != t.none; {
@@ -71,7 +78,9 @@ func (t *Tree) LowerBound(key int64) *Node {
 	return result
 }
 
-//noninclusive
+// UpperBound finds the node with the largest key
+// less than the argument. If multiple nodes have the same key,
+// the one with the highest rank is returned.
 func (t *Tree) UpperBound(key int64) *Node {
 	var result *Node
 	for n := t.root; n != t.none; {
@@ -352,6 +361,8 @@ func (t *Tree) removeFix(n *Node) {
 	n.black = true
 }
 
+// Next returns the node with rank one greater than the 
+// current one, or nil if the current node is the last node.
 func (t *Tree) Next(n *Node) *Node {
 	if n == t.none {
 		return nil
@@ -371,6 +382,8 @@ func (t *Tree) Next(n *Node) *Node {
 	return n.parent
 }
 
+// Prev returns the node with rank one less than the 
+// current one, or nil if the current node is the first node.
 func (t *Tree) Prev(n *Node) *Node {
 	if n == t.none {
 		return nil
@@ -390,6 +403,11 @@ func (t *Tree) Prev(n *Node) *Node {
 	return n.parent
 }
 
+// Rank returns the rank of its argument, or the number of nodes
+// with keys less than than that of the argument, plus a 
+// nonnegative integer less than the number of nodes with the same key.
+// Any two distinct nodes have a different rank, even if they share
+// the same key.
 func (t *Tree) Rank(n *Node) uint64 {
 	rank := n.left.size
 	for ; n != t.root; n = n.parent {
