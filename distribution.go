@@ -204,8 +204,9 @@ func (d *Distribution) Samples(limit uint64,
 
 	if begin != nil {
 		beginNode = d.times.LowerBound(int64(begin.Sub(d.timeBase)))
-	}
-	if beginNode != nil {
+		if beginNode == nil {
+			return make([]int64, 0)
+		}
 		beginRank = d.times.Rank(beginNode)
 	} else {
 		beginRank = 0
@@ -214,8 +215,9 @@ func (d *Distribution) Samples(limit uint64,
 
 	if end != nil {
 		endNode = d.times.UpperBound(int64(end.Sub(d.timeBase)))
-	}
-	if endNode != nil {
+		if endNode == nil {
+			return make([]int64, 0)
+		}
 		endRank = d.times.Rank(endNode)
 	} else {
 		endRank = d.size() - 1

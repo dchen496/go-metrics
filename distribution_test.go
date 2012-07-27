@@ -202,6 +202,20 @@ func TestDistributionSamples(t *testing.T) {
 		}
 		m[v] = true
 	}
+
+	badBeginTime := testTime.Add(105)
+	badEndTime := testTime.Add(-5)
+	s = d.Samples(30, &badBeginTime, &endTime)
+	if len(s) != 0 {
+		t.Errorf("Samples (bad begin) returned wrong slice size, got %d expected %d",
+			len(s), 0)
+	}
+
+	s = d.Samples(30, &beginTime, &badEndTime)
+	if len(s) != 0 {
+		t.Errorf("Samples (bad end) returned wrong slice size, got %d expected %d",
+			len(s), 0)
+	}
 }
 
 func BenchmarkDistributionAdd(b *testing.B) {
