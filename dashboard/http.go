@@ -43,15 +43,22 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 
 	case *metrics.Distribution:
 		if r.FormValue("samples") == "true" {
-			var begin, end *time.Time
-			json.Unmarshal([]byte(r.FormValue("begin")), begin)
-			json.Unmarshal([]byte(r.FormValue("end")), end)
+			var begin, end time.Time
+			beginptr, endptr := &begin, &end
+			begin, err := time.Parse(time.RFC3339, r.FormValue("begin"))
+			if err != nil {
+				beginptr = nil
+			}
+			end, err = time.Parse(time.RFC3339, r.FormValue("end"))
+			if err != nil {
+				endptr = nil
+			}
 
 			var limit uint64
 			fmt.Sscanf(r.FormValue("limit"), "%d", &limit)
 
 			toMarshal.Type = "distribution_sample"
-			toMarshal.Value = m.Samples(limit, begin, end)
+			toMarshal.Value = m.Samples(limit, beginptr, endptr)
 		} else {
 			toMarshal.Type = "distribution"
 			toMarshal.Value = m.Snapshot()
