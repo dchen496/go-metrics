@@ -39,6 +39,11 @@
         width: 400px;
       }
 
+      canvas#heatmap{
+        padding-top: 5px;
+        padding-bottom: 5px;
+      }
+
     </style>
   </head>
   <body>
@@ -64,6 +69,7 @@
           <th>Median</th>
           <th>25%</th>
           <th>75%</th>
+          <th>95%</th>
           <th>99%</th>
           <th>99.9%</th>
         </tr>
@@ -74,9 +80,12 @@
       </table>
       <h3>Meters</h3>
       <table id="meters">
-        <tr id="header"><th>Name</th><th>Value</th><th>Updated</th>
+        <tr id="header">
+          <th>Name</th><th>Value</th><th>1 min</th>
+          <th>5 min</th><th>15 min</th><th>Rates</th>
           <th>1 min</th><th>5 min</th><th>15 min</th>
-          <th>Rates</th><th>1 min</th><th>5 min</th><th>15 min</th></tr>
+          <th>Updated</th>
+        </tr>
       </table>
     </div>
     <h3>Graphs</h3>
@@ -88,339 +97,573 @@
     <script src="http://masonry.desandro.com/jquery.masonry.min.js"></script>
     <script>
 
-metrics = []
-counters = []
-distributions = []
-gauges = []
-meters = []
 
-tableInterval = 1000;
-distributionSamplesInterval = 10000;
-cubismContext = cubism.context()
-    .serverDelay(1000).step(tableInterval).size(380);
+var tableInterval = 1000,
+KDEInterval = 10000,
+heatmapInterval = 1000
 
+function MetricRow(name){
+  var graphs = {}
+  var graphcount = 0
+  var graphdiv = d3.select("#graphs").append("div").attr("class", "graph")
+  var data
 
-function Metric(name, type){
-  this.name = name;
-  this.type = type;
-  this.data = null;
-  this.show = true;
-  this.summary = null;
-  this.graphs = {};
-  this.graphdiv = null;
-  this.graphcount = 0;
+  this.row = null
+  this.name = name
 
-  this.update = function(){
-    if(this.show == false){
-      return null
-    }
-
-    var metric = this;
-
-    return $.getJSON("/metric", {"name" : this.name},
-      function(data){ metric.data = data.Value });
+  this.setData = function(a){
+    data = a
   }
 
-  this.draw = function(){
-    if(this.show == false){
-      return null
-    }
-
-    switch(this.type){
-    case "counter":
-      this.drawCounter();
-      break;
-    case "distribution":
-      this.drawDistribution();
-      break;
-    case "gauge":
-      this.drawGauge();
-      break;
-    case "meter":
-      this.drawMeter();
-      break;
-    }
+  // a reference to actual data variable, not the object in it
+  this.getDataFunc = function(){
+    return function(){return data}
   }
 
-  this.drawCounter = function(){
-    var counter = this.data;
-    var updated = new Date(counter.LastUpdated);
-
-    var data = [this.name,
-      this.graphToggle(counter.Value, "Value",
-        this.toggleCubism, "yellow"),
-        updated.toLocaleTimeString()
-      ];
-
-    drawRow(this.summary, data)
-  }
-
-  this.drawDistribution = function(){
-    var metric = this
-    var d = metric.data;
-    d["Min"] = d.Percentiles[0];
-    d["p25"] = d.Percentiles[1];
-    d["Median"] = d.Percentiles[2];
-    d["p75"] = d.Percentiles[3];
-    d["p99"] = d.Percentiles[4];
-    d["p999"] = d.Percentiles[5];
-    d["Max"] = d.Percentiles[6];
-
-    var l = ["Mean", "Variance", "StandardDeviation", "Skewness",
-      "Kurtosis", "Min", "Max", "Median", "p25", "p75", "p99", "p999"];
-
-    var data = [
-      this.graphToggle(this.name, "samples",
-        this.toggleDistributionSamples, "lightsteelblue"),
-      d.Count
-    ]
-
-    for(var i = 0; i < l.length; i++){
-      data.push(this.graphToggle(d[l[i]], l[i],
-        this.toggleCubism, "lightgreen"));
-    }
-
-    drawRow(this.summary, data)
-  }
-
-  this.toggleCubism = function(property){
-    var metric = this;
-    var context = cubismContext;
-    var graph = this.graphs[property]
-
-    var pd = graph.elem;
-    if(this.graphs[property].show != true){
-      if(pd != null){
-        pd.select(".axis")
-          .call(context.axis().remove).remove();
-        pd.select(".horizon")
-          .call(context.horizon().remove).remove();
-        pd.select(".rule")
-          .call(context.rule().remove).remove();
-        pd.remove()
-      }
-      return;
-    }
-
-   //force cubism to synchronously update
-    graph.queue = []
-    var queue = graph.queue
-
-    graph.metric = context.metric(
-      function(start, stop, step, callback){
-        start = +start;
-        stop = +stop;
-
-        var res = [];
-
-        queue.push(metric.data[property]);
-        if(queue.length > 7)
-          queue.shift();
-
-        while(start < stop){
-          start += step;
-          res.push(queue[i]);
-        }
-        callback(null, res);
-      }, property);
-
-
-    this.graphs[property].elem = this.graphdiv
-      .append("div").attr("id", property)
-    this.graphs[property].elem.call(function(div){
-
-      div.html(null)
-      div.append("div")
-        .attr("class", "axis")
-        .call(context.axis().ticks(d3.time.minutes, 2).orient("top"));
-
-      div.selectAll(".horizon")
-        .data([metric.graphs[property].metric])
-        .enter().append("div")
-        .attr("class", "horizon")
-        .call(context.horizon());
-
-      div.append("div")
-        .data([])
-        .attr("class", "rule")
-        .call(context.rule());
-    })
-
-  }
-
-  this.toggleDistributionSamples = function(){
-    this.drawDistributionSamples();
-  }
-
-  this.drawDistributionSamples = function(){
-    var w = 320, h = 240, wmargin = 80, hmargin = 40;
-    var metric = this;
-    if(this.graphs.samples.show != true){
-      if(metric.graphs.samples.elem != null)
-        metric.graphs.samples.elem.remove();
-      return
-    }
-
-    var svg = metric.graphdiv.selectAll("svg#samples").data([1])
-    svg.enter().append("svg").attr("id", "samples")
-      .attr("width", w + wmargin)
-      .attr("height", h + hmargin);
-    metric.graphs.samples.elem = svg
-
-    $.getJSON("/metric", {"name" : this.name, "samples" : true,
-      "limit" : 1000}, function(d){
-
-      var sorted = d.Value.sort(function(a,b){return a-b});
-      var smin = sorted[Math.floor(sorted.length*0.1)];
-      var smax = sorted[Math.ceil(sorted.length*0.9)-1];
-      var adj = (smax - smin) * 0.5;
-      smax += adj;
-      smin -= adj;
-      var diff = smax - smin
-
-      var kde = science.stats.kde().sample(sorted);
-      kde.bandwidth(science.stats.bandwidth.nrd0);
-      var kdearr = kde(d3.range(smin, smax + diff/2/w, diff/w));
-
-      ymax = d3.max(kdearr, function(d){ return d[1] });
-      var xscl = d3.scale.linear().domain([smin, smax]).range([0, w])
-      var yscl = d3.scale.linear().domain([0, ymax]).nice().range([h, 0])
-        .clamp(true);
-
-
-      var line = d3.svg.line()
-        .x(function(d) { return xscl(d[0]); })
-        .y(function(d) { return yscl(d[1]); });
-
-      var paths = svg.selectAll("path")
-        .data([1]);
-      paths.enter().append("path").style("fill", "steelblue");
-      paths.transition().duration(1000).attr("d", function(d){
-        kdearr.push([smax, 0]);
-        kdearr.unshift([smin, 0]);
-        return line(kdearr);
-      });
-
-      var ticks = yscl.ticks(5);
-      var rules = svg.selectAll("g.rule").data(ticks);
-      var newrules = rules.enter().append("g").attr("class", "rule")
-      newrules.append("line").attr("x2", w).attr("stroke", "gray");
-      newrules.append("text")
-      rules.exit().remove();
-      rules.attr("transform",
-        function(d){return "translate(0," + yscl(d) + ")"});
-
-      var ylabels = rules.selectAll("text")
-      ylabels.attr("x", w + 5).attr("dy", ".35em")
-        .text(formatFixedLen)
-
-      var xg = svg.selectAll("g#xlabel").data([xscl.domain()])
-      xg.enter().append("g").attr("id", "xlabel")
-      var xlabels = xg.selectAll("text").data(identity)
-      xlabels.enter().append("text")
-        .attr("x", function(d, i){ return i*(w-50) })
-        .attr("y", h + 10)
-        .attr("dy", ".35em")
-      xlabels.text(formatFixedLen)
-
-      setTimeout(function(){metric.drawDistributionSamples.call(metric)},
-        distributionSamplesInterval);
-    });
-
-  }
-
-  this.drawGauge = function(){
-    var gauge = this.data;
-    var updated = new Date(gauge.LastUpdated);
-    var str;
-    if(gauge.Value.length > 80) {
-      str = slice(gauge.Value, 77) + "...";
-    } else {
-      str = gauge.Value
-    }
-    var data = [this.name, str, updated.toLocaleTimeString()];
-    drawRow(this.summary, data)
-  }
-
-  this.drawMeter = function(){
-    var meter = this.data;
-    var updated = new Date(meter.LastUpdated);
-    var avgs = this.data.Derivatives[0]
-    var rates = this.data.Derivatives[1]
-    meter.x1 = avgs[1]
-    meter.x5 = avgs[2]
-    meter.x15 = avgs[3]
-    meter.dx_dt = rates[0]
-    meter.dx_dt1 = rates[1]
-    meter.dx_dt5 = rates[2]
-    meter.dx_dt15 = rates[3]
-
-    var data = [
-      this.name,
-      this.graphToggle(meter.Value, "Value", this.toggleCubism, "pink"),
-      updated.toLocaleTimeString(),
-    ];
-
-    var l = ["x1", "x5", "x15", "dx_dt", "dx_dt1", "dx_dt5", "dx_dt15"];
-    for(var i = 0; i < l.length; i++){
-      data.push(this.graphToggle(meter[l[i]], l[i],
-        this.toggleCubism, "pink"));
-    }
-
-    drawRow(this.summary, data)
-  }
-
-  this.graphToggle = function(text, property, onclick, color){
-    var metric = this;
-    if(this.graphs[property] == null){
-      this.graphs[property] = {};
-    }
-    return clickableCell(text, function(c){
-      if(metric.graphs[property].show){
-        metric.graphcount--
-        if(metric.graphcount == 0){
-          metric.graphdiv.style("padding", "0");
-          metric.graphdiv.select("h3#title").remove();
-        }
-        metric.graphs[property].show = false;
-        c.style("background-color", "transparent");
+  this.drawRow = function(vals){
+    var cells = this.row.selectAll("td").data(vals)
+    cells.enter().append("td")
+    cells.each(function(d){
+      cell = d3.select(this)
+      if($.isFunction(d)){
+        d(cell)
       } else {
-        metric.graphs[property].show = true;
-        if(metric.graphcount == 0){
-          metric.graphdiv.style("padding", "5px");
-          metric.graphdiv.append("h3").attr("id", "title")
-            .text(metric.name)
-        }
-        metric.graphcount++;
-        c.style("background-color", color)
+        if($.isNumeric(d))
+          d = formatFixedLen(d)
+        cell.text(d)
       }
-      onclick.call(metric, property);
-      updateGraphCols();
+    })
+  }
+
+  this.clickableCell = function(onclick){
+    return function(cell){
+      cell.on("click", function(){onclick(cell)})
+    }
+  }
+
+  this.graphToggle = function(graphname, accessor, Constructor, color){
+    return this.clickableCell(function(cell){
+      if(graphs[graphname] != null){
+        graphcount--
+        if(graphcount == 0){
+          graphdiv.style("padding", "0")
+          graphdiv.select("h3#title").remove()
+        }
+
+        graphs[graphname].destroy()
+        delete graphs[graphname]
+
+        cell.style("background-color", "transparent")
+      } else {
+        if(graphcount == 0){
+          graphdiv.style("padding", "5px")
+          graphdiv.append("h3").attr("id", "title").text(name)
+        }
+        graphcount++
+
+        graphs[graphname] = new Constructor(graphname, accessor, graphdiv)
+
+        cell.style("background-color", color)
+      }
+      $("#graphs").masonry("reload")
     })
   }
 }
 
+MetricRowUpdater.metrics = []
+
+function MetricRowUpdater(name, type){
+  var row
+  switch(type){
+  case "counter":
+    row = new CounterRow(name)
+    break
+  case "distribution":
+    row = new DistributionRow(name)
+    break
+  case "gauge":
+    row = new GaugeRow(name)
+    break
+  case "meter":
+    row = new MeterRow(name)
+    break
+  }
+
+  this.update = function(){
+    $.getJSON("/metric", {"name" : name},
+    function(d){
+      row.metric.setData(d.Value)
+      row.draw()
+    })
+  }
+
+  MetricRowUpdater.metrics.push(this)
+}
+
+MetricRowUpdater.updateAll = function(){
+  metrics = MetricRowUpdater.metrics
+  for(i in metrics){
+    metrics[i].update()
+  }
+}
+
+
+function CounterRow(name){
+  this.name = name
+  this.metric = new MetricRow(name)
+  var data = this.metric.getDataFunc()
+
+  this.draw = function(){
+    var updated = new Date(data().LastUpdated)
+    var row = [
+      this.name,
+      data().Value,
+      updated.toLocaleTimeString()
+    ]
+
+    this.metric.drawRow(row)
+  }
+
+  this.makeToggles = function(){
+    var row = [
+      null,
+      this.metric.graphToggle("Value", function(){return data().Value},
+        CubismGraph, "yellow"),
+      null
+    ]
+
+    this.metric.drawRow(row)
+  }
+
+  this.metric.row = d3.select("#counters").append("tr")
+  this.makeToggles()
+}
+
+function DistributionRow(name){
+  this.name = name
+  this.metric = new MetricRow(name)
+  var data = this.metric.getDataFunc()
+
+  var cubismToggles = [
+    ["Mean", function(){return data().Mean}],
+    ["Variance", function(){return data().Variance}],
+    ["StdDev", function(){return data().StandardDeviation}],
+    ["Skewness", function(){return data().Skewness}],
+    ["Kurtosis", function(){return data().Kurtosis}],
+    ["Min", function(){return data().Percentiles[0]}],
+    ["Max", function(){return data().Percentiles[7]}],
+    ["Median", function(){return data().Percentiles[2]}],
+    ["25%", function(){return data().Percentiles[1]}],
+    ["75%", function(){return data().Percentiles[3]}],
+    ["95%", function(){return data().Percentiles[4]}],
+    ["99%", function(){return data().Percentiles[5]}],
+    ["99.9%", function(){return data().Percentiles[6]}],
+  ]
+
+  this.draw = function(){
+    var name = this.name
+    var row = [name, data().Count]
+    for(var i = 0; i < cubismToggles.length; i++){
+      row.push(cubismToggles[i][1]())
+    }
+
+    this.metric.drawRow(row)
+  }
+
+  this.makeToggles = function(){
+    var name = this.name
+    var row = [
+      this.metric.graphToggle("heatmap", function(){ return name },
+        HeatmapUpdater, "lightgreen"),
+      this.metric.graphToggle("samples", function(){ return name },
+        KDEGraphUpdater, "lightgreen")
+    ]
+    for(var i = 0; i < cubismToggles.length; i++){
+      row.push(this.metric.graphToggle(cubismToggles[i][0],
+        cubismToggles[i][1], CubismGraph, "lightgreen"))
+    }
+
+    this.metric.drawRow(row)
+  }
+
+  this.metric.row = d3.select("#distributions").append("tr")
+  this.makeToggles()
+}
+
+function GaugeRow(name){
+  this.name = name
+  this.metric = new MetricRow(name)
+  var data = this.metric.getDataFunc()
+
+  this.draw = function(){
+    var updated = new Date(data().LastUpdated)
+    var str
+    if(data().Value.length > 80) {
+      str = slice(data().Value, 77) + "..."
+    } else {
+      str = data().Value
+    }
+    this.metric.drawRow([name, str, updated.toLocaleTimeString()])
+  }
+
+  this.metric.row = d3.select("#gauges").append("tr")
+}
+
+function MeterRow(name){
+  this.name = name
+  this.metric = new MetricRow(name)
+  var data = this.metric.getDataFunc()
+
+  var toggles = [
+    ["Value", function(){return data().Value}],
+    ["1 min avg", function(){return data().Derivatives[0][1]}],
+    ["5 min avg", function(){return data().Derivatives[0][2]}],
+    ["15 min avg", function(){return data().Derivatives[0][3]}],
+    ["instant rate", function(){return data().Derivatives[1][0]}],
+    ["1 min rate", function(){return data().Derivatives[1][1]}],
+    ["5 min rate", function(){return data().Derivatives[1][2]}],
+    ["15 min rate", function(){return data().Derivatives[1][3]}]
+  ]
+
+  this.draw = function(){
+    var row = [this.name]
+    for(var i = 0; i < toggles.length; i++){
+      row.push(toggles[i][1]())
+    }
+    var updated = new Date(data().LastUpdated)
+    row.push(updated.toLocaleTimeString())
+
+    this.metric.drawRow(row)
+  }
+
+  this.makeToggles = function(){
+    var row = [null]
+    for(var i = 0; i < toggles.length; i++){
+      row.push(this.metric.graphToggle(toggles[i][0], toggles[i][1],
+        CubismGraph, "pink"))
+    }
+    row.push(null)
+
+    this.metric.drawRow(row)
+  }
+
+  this.metric.row = d3.select("#meters").append("tr")
+  this.makeToggles()
+}
+
+HeatmapUpdater.heatmaps = []
+
+function HeatmapUpdater(name, accessor, div){
+  var npreload, heatmap
+
+  this.preload = function(arr){
+    var u = this
+    $.getJSON("/metric",
+      {"name" : accessor(),
+       "samples" : true,
+       "limit" : 1000},
+      function(d){
+        var rangeslice = dataRangeSlice(d.Value, 0.2, 0.8, 2)
+        range = rangeslice[0]
+
+        heatmap = new Heatmap(div, range)
+        npreload = heatmap.getHRes()
+
+        now = new Date
+        for(var i = npreload; i >= 0; i--){
+          u.update(new Date(now.getTime() - heatmapInterval * i))
+        }
+    })
+  }
+
+  this.update = function(end){
+    var begin = new Date(end.getTime() - heatmapInterval)
+
+    var newest = end
+    var oldest = new Date(newest.getTime() - (npreload - 1) * heatmapInterval)
+
+    $.getJSON("/metric",
+      {"name" : accessor(),
+       "samples" : true,
+       "limit" : 100,
+       "begin" : begin.toISOString(),
+       "end" : end.toISOString()},
+      function(d){
+        heatmap.draw(d.Value, newest, oldest)
+      })
+  }
+
+  this.preload()
+
+  HeatmapUpdater.heatmaps.push([this, heatmapInterval, 0])
+
+  this.destroy = function(data){
+    var h = HeatmapUpdater.heatmaps
+    for(i in h){
+      if(h[i][0] == this){
+        h.splice(i, 1)
+        break
+      }
+    }
+    heatmap.destroy()
+  }
+}
+
+HeatmapUpdater.updateAll = function(){
+  var h = HeatmapUpdater.heatmaps
+  for(var i in h){
+    h[i][2] -= heatmapInterval
+    if(h[i][2] <= 0){
+      h[i][0].update(new Date)
+      h[i][2] = h[i][1]
+    }
+  }
+}
+
+function Heatmap(div, range){
+  var w = 345, wmargin = 60, h = 100, hmargin = 20
+  var shiftw = 5, nbins = 20
+
+  var elem = div.append("canvas").attr("id", "heatmap")
+    .attr("width", w + wmargin).attr("height", h + hmargin)
+  var ctx = elem[0][0].getContext('2d')
+
+  var newest = null
+
+  var colormap = function(v){
+    var lightness = 15 + 0.6 * v
+    var hue = 240 - 3.6 * v
+    return "hsl(" + hue + ", 100%, " + lightness + "%)"
+  }
+
+  ctx.fillStyle = colormap(0)
+  ctx.fillRect(0, 0, w, h)
+
+  this.draw = function(arr, newest, oldest){
+    var hist = d3.layout.histogram().range(range).bins(nbins)
+    var bins = hist(arr)
+
+    ctx.drawImage(ctx.canvas, shiftw, 0, w - shiftw, h, 0, 0, w - shiftw, h)
+
+    ctx.save()
+    ctx.translate(w - shiftw, 0)
+    for(var i = 0; i < bins.length; i++){
+      ctx.fillStyle = colormap(bins[i].y)
+      ctx.fillRect(0, (bins.length - i - 1) * h / nbins, shiftw, h / nbins)
+    }
+    ctx.restore()
+
+    ctx.save()
+    ctx.fillStyle = "black"
+    ctx.font = "12px sans-serif"
+
+    // x axis
+    ctx.save()
+    ctx.translate(0, h)
+    ctx.clearRect(0, 0, w, hmargin)
+
+    var mid = new Date((oldest.getTime() + newest.getTime()) / 2)
+    ctx.fillText(oldest.toLocaleTimeString(), 0, 15)
+    ctx.fillText(mid.toLocaleTimeString(), (w-50)/2, 15)
+    ctx.fillText(newest.toLocaleTimeString(), w-50, 15)
+    ctx.restore()
+
+    // y axis
+    ctx.save()
+    ctx.translate(w, 0)
+    ctx.clearRect(0, 0, wmargin, h)
+    ctx.fillText(formatFixedLen(range[1]), 5, 12)
+    ctx.fillText(formatFixedLen((range[0] + range[1])/2),
+      5, Math.floor((h + 10)/2))
+    ctx.fillText(formatFixedLen(range[0]), 5, h - 2)
+    ctx.restore()
+    ctx.restore()
+  }
+
+  this.getHRes = function(){
+    return w/shiftw
+  }
+
+  this.destroy = function(data){
+    elem.remove()
+  }
+}
+
+var cubismContext = cubism.context()
+    .serverDelay(1000).step(tableInterval).size(400)
+
+function CubismGraph(name, accessor, div){
+  var context = cubismContext
+
+  // Force Cubism to synchronously update
+  // Cubism reads with start incrementing by step,
+  // and stop = start + 6*step. So, it reads everything
+  // 7 times. This is not good since the previous values
+  // aren't stored on the server.
+  var queue = []
+  var metric = context.metric(
+    function(start, stop, step, callback){
+      start = +start
+      stop = +stop
+
+      var res = []
+
+      queue.push(accessor())
+      if(queue.length > 7)
+        queue.shift()
+
+      while(start < stop){
+        start += step
+        res.push(queue[i])
+      }
+      callback(null, res)
+    }, name)
+
+
+  var graph = div.append("div").attr("id", name)
+
+  var axis = graph.append("div").attr("class", "axis")
+    .call(context.axis().ticks(d3.time.minutes, 2).orient("top"))
+
+  var horizon = graph.selectAll(".horizon")
+    .data([metric]).enter()
+    .append("div")
+    .attr("class", "horizon")
+    .call(context.horizon())
+
+  var rule = graph.append("div").data([]).attr("class", "rule")
+    .call(context.rule())
+
+  this.destroy = function(){
+    graph.select(".axis")
+      .call(context.axis().remove).remove()
+    graph.select(".horizon")
+      .call(context.horizon().remove).remove()
+    graph.select(".rule")
+      .call(context.rule().remove).remove()
+    graph.remove()
+  }
+}
+
+function KDEGraphUpdater(name, accessor, div){
+  var graph = new KDEGraph(div)
+
+  this.update = function(){
+    $.getJSON("/metric",
+      {"name" : accessor(), "samples" : true, "limit" : 1000},
+      function(d){ graph.draw(d.Value) })
+  }
+  this.update()
+
+  KDEGraphUpdater.graphs.push(this)
+
+  this.destroy = function(){
+    graph.destroy()
+  }
+}
+
+KDEGraphUpdater.graphs = []
+
+function KDEGraph(div){
+  var svg = div.append("svg").attr("id", "samples")
+  var path = svg.append("path").style("fill", "steelblue")
+  var xgroup = svg.append("g").attr("id", "xlabel")
+
+  var w = 345, h = 240, wmargin = 55, hmargin = 40
+
+  this.draw = function(data){
+    svg.attr("width", w + wmargin)
+      .attr("height", h + hmargin)
+
+    var rangeslice = dataRangeSlice(data, 0.1, 0.9, 2)
+    var range = rangeslice[0]
+    var slice = rangeslice[1]
+
+    var diff = range[1] - range[0]
+
+    var kde = science.stats.kde().sample(slice)
+    kde.bandwidth(science.stats.bandwidth.nrd0)
+    var kdearr = kde(d3.range(range[0], range[1] + diff/2/w, diff/w))
+
+
+    ymax = d3.max(kdearr, function(d){ return d[1] })
+    var xscl = d3.scale.linear().domain(range).range([0, w])
+    var yscl = d3.scale.linear().domain([0, ymax]).nice().range([h, 0])
+      .clamp(true)
+
+
+    var line = d3.svg.line()
+      .x(function(d) { return xscl(d[0]) })
+      .y(function(d) { return yscl(d[1]) })
+
+    path.transition().duration(1000).attr("d", function(d){
+      kdearr.push([range[1], 0])
+      kdearr.unshift([range[0], 0])
+      return line(kdearr)
+    })
+
+    var ticks = yscl.ticks(5)
+    var rules = svg.selectAll("g.rule").data(ticks)
+    var newrules = rules.enter().append("g").attr("class", "rule")
+    newrules.append("line").attr("x2", w).attr("stroke", "gray")
+    newrules.append("text")
+    rules.exit().remove()
+    rules.attr("transform", function(d){return "translate(0," + yscl(d) + ")"})
+
+    var ylabels = rules.selectAll("text")
+    ylabels.attr("x", w + 5).attr("dy", ".35em")
+      .text(formatFixedLen)
+
+    var xlabels = xgroup.selectAll("text")
+      .data([range[0], (range[0]+range[1])/2, range[1]])
+    xlabels.enter().append("text")
+      .attr("x", function(d, i){ return i * (w - 50)/2 })
+      .attr("y", h + 10)
+      .attr("dy", ".35em")
+    xlabels.text(formatFixedLen)
+  }
+
+  this.destroy = function(){
+    var g = KDEGraphUpdater.graphs
+    for(i in g){
+      if(g[i] == this){
+        g.splice(i, 1)
+        break
+      }
+    }
+    svg.remove()
+  }
+}
+
+KDEGraphUpdater.updateAll = function(){
+  var g = KDEGraphUpdater.graphs
+  for(i in g){
+    g[i].update()
+  }
+}
+
+
 
 function identity(d){
-  return d;
+  return d
 }
 
 function formatDuration(t){
   if(t == 0)
-    return "0";
+    return "0"
 
-  units = ["ns", "us", "ms"];
+  units = ["ns", "us", "ms"]
   for(var i = 0; i < 3; i++){
     if(t < 1000){
-      return t.toString() + units[i];
+      return t.toString() + units[i]
     }
-    t /= 1000;
+    t /= 1000
   }
   if(t < 60){
-    return t.toString() + "s";
+    return t.toString() + "s"
   }
-  t /= 60;
-  return t.toString() + "m";
+  t /= 60
+  return t.toString() + "m"
 }
 
 function formatFixedLen(n){
@@ -431,110 +674,57 @@ function formatFixedLen(n){
   if(fix.length <= 7){
     return fix
   } else {
-    return n.toExponential(2);
+    return n.toExponential(2)
   }
 }
 
-function drawRow(row, vals){
-  var cells = row.selectAll("td").data(vals);
-  cells.enter().append("td");
-  cells.each(function(d){
-    cell = d3.select(this);
-    if($.isFunction(d)){
-      d(cell);
+
+function dataRangeSlice(data, pmin, pmax, mul){
+  var sorted = data.sort(function(a,b){return a-b})
+  var imin = Math.floor(sorted.length*pmin)
+  var imax = Math.ceil(sorted.length*pmax)
+  var smin = sorted[imin]
+  var smax = sorted[imax - 1]
+  if(smin == smax){
+    if(smax < 0){
+      smin = 2 * smin
+      smax = 0
+    } else if(smax == 0){
+      smin = -10
+      smax = 10
     } else {
-      if(!isNaN(d))
-        d = formatFixedLen(d)
-      cell.text(d);
+      smin = 0
+      smax = 2 * smax
     }
-  });
-}
-
-function clickableCell(text, onclick){
-  return function(c){
-    if(!isNaN(text))
-      text = formatFixedLen(text)
-    c.text(text)
-    c.on("click", function(){onclick(c)})
-  }
-}
-
-function updateAll(){
-  var deferred = []
-  deferred.length = metrics.length
-
-  for(i in metrics){
-    deferred[i] = metrics[i].update();
   }
 
-  $.when.apply($, deferred).then(function(){
-    for(i in metrics){
-      metrics[i].draw();
-    }
-  });
+  var adj = (smax - smin) * (mul - 1)/2
+  smax += adj
+  smin -= adj
+
+  return [[smin, smax], sorted.slice(imin, imax)]
 }
+
 
 $(document).ready(function(){
   $.getJSON("/list", {}, function(list){
     list.sort()
     for(i in list){
-      var m = new Metric(list[i][0], list[i][1]);
-      metrics.push(m);
-      switch(list[i][1]){
-      case "counter":
-        counters.push(m);
-        break;
-      case "distribution":
-        distributions.push(m);
-        break;
-      case "gauge":
-        gauges.push(m);
-        break;
-      case "meter":
-        meters.push(m);
-        break;
-      }
+      new MetricRowUpdater(list[i][0], list[i][1])
     }
-
-    populate("#counters", counters)
-    populate("#distributions", distributions)
-    populate("#gauges", gauges)
-    populate("#meters", meters)
-
-    d3.select("#graphs").selectAll("div").data(metrics)
-    .enter().append("div").attr("class", "graph")
-      .each(function(metric){
-        metric.graphdiv = d3.select(this)
-      });
 
     $("#graphs").masonry({
       itemSelector: ".graph",
       columnWidth: 410
-    });
-
-    metrics.forEach(function(metric){
-      $.when(metric.update()).then(function(){ metric.draw() });
     })
 
-    updateAll();
-    setInterval(updateAll, tableInterval);
+    MetricRowUpdater.updateAll()
+    setInterval(function(){MetricRowUpdater.updateAll()}, tableInterval)
+    setInterval(function(){KDEGraphUpdater.updateAll()}, KDEInterval)
+    setInterval(function(){HeatmapUpdater.updateAll()}, heatmapInterval)
+  })
 
-  });
+})
 
-});
-
-function populate(selector, metrics){
-  var sel = d3.select(selector).selectAll("tr.summary")
-    .data(metrics).enter()
-
-  sel.append("tr")
-     .each(function(metric){
-       metric.summary = d3.select(this);
-     });
-}
-
-function updateGraphCols(){
-  $("#graphs").masonry("reload");
-}
     </script>
   </body>
