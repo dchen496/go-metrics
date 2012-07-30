@@ -273,7 +273,8 @@ function DistributionRow(name){
   this.makeToggles = function(){
     var name = this.name
     var row = [
-      this.metric.graphToggle("heatmap", function(){ return name },
+      this.metric.graphToggle("heatmap",
+        function(){ return {name: name, window: data().Window} },
         HeatmapUpdater, "lightgreen"),
       this.metric.graphToggle("samples", function(){ return name },
         KDEGraphUpdater, "lightgreen")
@@ -354,48 +355,53 @@ function MeterRow(name){
 HeatmapUpdater.heatmaps = []
 
 function HeatmapUpdater(name, accessor, div){
-  var npreload, heatmap
+  var n, interval, popPerRow, heatmap
 
   this.preload = function(arr){
     var u = this
     $.getJSON("/metric",
-      {"name" : accessor(),
+      {"name" : accessor().name,
        "samples" : true,
        "limit" : 1000},
       function(d){
-        var rangeslice = dataRangeSlice(d.Value, 0.2, 0.8, 2)
+        d = d.Value
+        var rangeslice = dataRangeSlice(d.Samples, 0.2, 0.8, 2)
         range = rangeslice[0]
 
         heatmap = new Heatmap(div, range)
-        npreload = heatmap.getHRes()
+        n = heatmap.getHRes()
+
+        var w = accessor().window/1000000
+        interval = Math.ceil(w/n/heatmapInterval)
+        interval *= heatmapInterval
 
         now = new Date
-        for(var i = npreload; i >= 0; i--){
-          u.update(new Date(now.getTime() - heatmapInterval * i))
+        for(var i = n; i >= 0; i--){
+          u.update(new Date(now.getTime() - interval * i))
         }
+
+        HeatmapUpdater.heatmaps.push([u, interval, 0])
     })
   }
 
   this.update = function(end){
-    var begin = new Date(end.getTime() - heatmapInterval)
+    var begin = new Date(end.getTime() - interval)
 
     var newest = end
-    var oldest = new Date(newest.getTime() - (npreload - 1) * heatmapInterval)
+    var oldest = new Date(newest.getTime() - (n- 1) * interval)
 
     $.getJSON("/metric",
-      {"name" : accessor(),
+      {"name" : accessor().name,
        "samples" : true,
        "limit" : 100,
        "begin" : begin.toISOString(),
        "end" : end.toISOString()},
       function(d){
-        heatmap.draw(d.Value, newest, oldest)
+        heatmap.draw(d.Value.Samples, newest, oldest)
       })
   }
 
   this.preload()
-
-  HeatmapUpdater.heatmaps.push([this, heatmapInterval, 0])
 
   this.destroy = function(data){
     var h = HeatmapUpdater.heatmaps
@@ -551,7 +557,9 @@ function KDEGraphUpdater(name, accessor, div){
   this.update = function(){
     $.getJSON("/metric",
       {"name" : accessor(), "samples" : true, "limit" : 1000},
-      function(d){ graph.draw(d.Value) })
+      function(d){
+        graph.draw(d.Value.Samples)
+      })
   }
   this.update()
 
