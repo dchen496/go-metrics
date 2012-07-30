@@ -44,6 +44,8 @@ type DistributionSnapshot struct {
 	Kurtosis          float64
 	Percentiles       []int64
 	PopulationSize    float64
+	Window            time.Duration
+	LastUpdated       time.Time
 }
 
 func newDistribution() *Distribution {
@@ -164,6 +166,8 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 
 	d.lock.RLock()
 
+	lastUpdated := time.Duration(d.times.FindByRank(d.size() - 1).Key())
+
 	r := DistributionSnapshot{
 		Count:             d.s.Count(),
 		Mean:              d.s.Mean(),
@@ -173,6 +177,8 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 		Kurtosis:          d.s.Kurtosis(),
 		Percentiles:       make([]int64, len(DistributionPercentiles)),
 		PopulationSize:    d.populationSize,
+		Window:            d.window,
+		LastUpdated:       d.timeBase.Add(lastUpdated),
 	}
 	for i, v := range DistributionPercentiles {
 		r.Percentiles[i] = d.s.Percentile(v)
