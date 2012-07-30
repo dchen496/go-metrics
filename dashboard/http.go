@@ -58,7 +58,15 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 			fmt.Sscanf(r.FormValue("limit"), "%d", &limit)
 
 			toMarshal.Type = "distribution_sample"
-			toMarshal.Value = m.Samples(limit, beginptr, endptr)
+			s, c := m.Samples(limit, beginptr, endptr)
+			var t struct {
+				Samples []int64
+				Count   uint64
+			}
+			t.Samples = s
+			t.Count = c
+			toMarshal.Value = t
+
 		} else {
 			toMarshal.Type = "distribution"
 			toMarshal.Value = m.Snapshot()
@@ -122,5 +130,6 @@ func NewHTTPServer(r *metrics.Registry, addr string) HTTPServer {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+
 	return h
 }

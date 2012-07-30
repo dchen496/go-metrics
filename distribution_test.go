@@ -39,7 +39,7 @@ func TestDistributionAdd(t *testing.T) {
 			d.size(), 4)
 	}
 
-	s := d.Samples(0, nil, nil)
+	s, _ := d.Samples(0, nil, nil)
 	expected := []int64{12, -9, 30, 12, 9}
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Wrong sample slice, got %v expected %v", s, expected)
@@ -61,7 +61,7 @@ func TestDistributionProbabilisticAdd(t *testing.T) {
 		}
 
 		d.add(9, testTime.Add(3), i)
-		s := d.Samples(0, nil, nil)
+		s, _ := d.Samples(0, nil, nil)
 		expected := []int64{12, -9, 30, 12}
 		if !testCompareSlices(s, expected) {
 			skip++
@@ -139,7 +139,7 @@ func TestDistributionRemoveFromPopulation(t *testing.T) {
 	d := testDistributionInit()
 	d.removeFromPopulation(d.times.FindByRank(2))
 
-	s := d.Samples(0, nil, nil)
+	s, _ := d.Samples(0, nil, nil)
 	expected := []int64{12, -9, 12}
 	if !testCompareSlices(s, expected) {
 		t.Errorf("Wrong samples after remove, got %v expected %v", s, expected)
@@ -160,41 +160,40 @@ func TestDistributionSamples(t *testing.T) {
 		baseExpected[i] = i
 	}
 
-	s := d.Samples(0, nil, nil)
-	if !testCompareSlices(s, baseExpected) {
-		t.Errorf("Samples (all) returned wrong slice, got %v expected %v",
-			s, baseExpected)
+	errStr := "Samples (%s) returned wrong slice," +
+		"got %v, %v expected %v, %v"
+
+	s, n := d.Samples(0, nil, nil)
+	if !testCompareSlices(s, baseExpected) || n != 100 {
+		t.Errorf(errStr, "all", s, n, baseExpected, 100)
 	}
 
 	beginTime := testTime.Add(25)
 	endTime := testTime.Add(75)
 
-	s = d.Samples(0, &beginTime, nil)
+	s, n = d.Samples(0, &beginTime, nil)
 	expected := baseExpected[25:]
-	if !testCompareSlices(s, expected) {
-		t.Errorf("Samples (begin) returned wrong slice, got %v expected %v",
-			s, expected)
+	if !testCompareSlices(s, expected) || n != 75 {
+		t.Errorf(errStr, "begin", s, n, expected, 75)
 	}
 
-	s = d.Samples(0, nil, &endTime)
+	s, n = d.Samples(0, nil, &endTime)
 	expected = baseExpected[:75]
-	if !testCompareSlices(s, expected) {
-		t.Errorf("Samples (end) returned wrong slice, got %v expected %v",
-			s, expected)
+	if !testCompareSlices(s, expected) || n != 75 {
+		t.Errorf(errStr, "end", s, n, expected, 75)
 	}
 
-	s = d.Samples(0, &beginTime, &endTime)
+	s, n = d.Samples(0, &beginTime, &endTime)
 	expected = baseExpected[25:75]
-	if !testCompareSlices(s, expected) {
-		t.Errorf("Samples (begin, end) returned wrong slice, got %v expected %v",
-			s, expected)
+	if !testCompareSlices(s, expected) || n != 50 {
+		t.Errorf(errStr, "begin & end", s, n, expected, 50)
 	}
 
-	s = d.Samples(30, &beginTime, &endTime)
-	if len(s) != 30 {
-		t.Errorf("Samples (limit) returned wrong slice size, got %d expected %d",
-			len(s), 30)
+	s, n = d.Samples(30, &beginTime, &endTime)
+	if len(s) != 30 || n != 50 {
+		t.Errorf(errStr, "limit", len(s), n, 30, 50)
 	}
+
 	m := make(map[int64]bool)
 	for _, v := range s {
 		if m[v] {
@@ -205,16 +204,14 @@ func TestDistributionSamples(t *testing.T) {
 
 	badBeginTime := testTime.Add(105)
 	badEndTime := testTime.Add(-5)
-	s = d.Samples(30, &badBeginTime, &endTime)
-	if len(s) != 0 {
-		t.Errorf("Samples (bad begin) returned wrong slice size, got %d expected %d",
-			len(s), 0)
+	s, n = d.Samples(30, &badBeginTime, &endTime)
+	if len(s) != 0 || n != 0 {
+		t.Errorf(errStr, "bad begin", len(s), n, 0, 0)
 	}
 
-	s = d.Samples(30, &beginTime, &badEndTime)
-	if len(s) != 0 {
-		t.Errorf("Samples (bad end) returned wrong slice size, got %d expected %d",
-			len(s), 0)
+	s, n = d.Samples(30, &beginTime, &badEndTime)
+	if len(s) != 0 || n != 0 {
+		t.Errorf(errStr, "bad end", len(s), n, 0, 0)
 	}
 }
 
