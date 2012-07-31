@@ -17,7 +17,7 @@ func (t *testGaugable) String() string {
 func testGaugeInit() *Gauge {
 	g := newGauge()
 	t := testGaugable{}
-	g.SetFunction(func(*Gauge) Gaugable {
+	g.SetFunction(func() Gaugable {
 		t.value += 5
 		t.status = true
 		return &t

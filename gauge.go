@@ -24,7 +24,8 @@ type Gaugable interface {
 	fmt.Stringer
 }
 
-type GaugeFunction func(*Gauge) Gaugable
+// A gauge's GaugeFunction is called each time it is updated.
+type GaugeFunction func() Gaugable
 
 func newGauge() *Gauge {
 	return &Gauge{}
@@ -55,7 +56,7 @@ func (g *Gauge) Update() {
 func (g *Gauge) update(now time.Time) {
 	g.lock.Lock()
 	if g.function != nil {
-		g.value = g.function(g)
+		g.value = g.function()
 	}
 	g.lastUpdated = now
 	g.lock.Unlock()
