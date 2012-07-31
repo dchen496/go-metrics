@@ -166,7 +166,11 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 
 	d.lock.RLock()
 
-	lastUpdated := time.Duration(d.times.FindByRank(d.size() - 1).Key())
+	var lastUpdated time.Time
+	if d.size() != 0 {
+		dur := time.Duration(d.times.FindByRank(d.size() - 1).Key())
+		lastUpdated = d.timeBase.Add(dur)
+	}
 
 	r := DistributionSnapshot{
 		Count:             d.s.Count(),
@@ -178,7 +182,7 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 		Percentiles:       make([]int64, len(DistributionPercentiles)),
 		PopulationSize:    d.populationSize,
 		Window:            d.window,
-		LastUpdated:       d.timeBase.Add(lastUpdated),
+		LastUpdated:       lastUpdated,
 	}
 	for i, v := range DistributionPercentiles {
 		r.Percentiles[i] = d.s.Percentile(v)

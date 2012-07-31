@@ -78,7 +78,9 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 			Value       string
 			LastUpdated time.Time
 		}
-		stringified.Value = snapshot.Value.String()
+		if snapshot.Value != nil {
+			stringified.Value = snapshot.Value.String()
+		}
 		stringified.LastUpdated = snapshot.LastUpdated
 
 		toMarshal.Type = "gauge"
