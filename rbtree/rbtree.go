@@ -1,5 +1,7 @@
 package rbtree
 
+// rbtree implements a red-black tree. It can be used as a multimap.
+// It additionally allows finding nodes by rank.
 type Tree struct {
 	root *Node
 	none *Node
@@ -45,7 +47,8 @@ func (t *Tree) FindByRank(rank uint64) *Node {
 			n = n.right
 		}
 	}
-	return n
+	//should never reach here
+	return nil
 }
 
 // Find returns the node with the specified key. If multiple nodes

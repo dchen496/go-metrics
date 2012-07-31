@@ -114,10 +114,9 @@ func (d *Distribution) add(v int64, now time.Time, remove uint64) {
 	defer d.lock.Unlock()
 
 	d.populationSize++
-	if d.s.Count() >= d.maxSampleSize {
-		r := remove
-		if r < d.maxSampleSize {
-			n := d.times.FindByRank(r)
+	if d.size() >= d.maxSampleSize {
+		if remove < d.maxSampleSize {
+			n := d.times.FindByRank(remove)
 			d.remove(n)
 		} else {
 			return
@@ -156,7 +155,7 @@ func (d *Distribution) remove(n *rbtree.Node) {
 }
 
 func (d *Distribution) removeFromPopulation(n *rbtree.Node) {
-	d.populationSize *= float64(d.s.Count()-1) / float64(d.s.Count())
+	d.populationSize *= float64(d.size()-1) / float64(d.size())
 	d.remove(n)
 }
 
@@ -173,7 +172,7 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 	}
 
 	r := DistributionSnapshot{
-		Count:             d.s.Count(),
+		Count:             d.size(),
 		Mean:              d.s.Mean(),
 		Variance:          d.s.Variance(),
 		StandardDeviation: d.s.StandardDeviation(),
@@ -201,7 +200,7 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 // The second return value is the actual number of samples in the
 // time interval specified.
 func (d *Distribution) Samples(limit uint64,
-	begin, end *time.Time) ([]int64, uint64) {
+	begin, end *time.Time) (vals []int64, count uint64) {
 
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -242,11 +241,11 @@ func (d *Distribution) Samples(limit uint64,
 		return make([]int64, 0), 0
 	}
 
-	diff := endRank - beginRank
+	ct := endRank - beginRank + 1
 	var m []int64
-	if limit >= diff {
+	if limit >= ct {
 		// get everything
-		m = make([]int64, diff+1)
+		m = make([]int64, ct)
 		for n, i := beginNode, uint64(0); n != nil; n, i = d.times.Next(n), i+1 {
 			m[i] = n.Value().(statistics.SampleElement).Value()
 			if n == endNode {
@@ -255,7 +254,7 @@ func (d *Distribution) Samples(limit uint64,
 		}
 	} else {
 		m = make([]int64, limit)
-		s := randCombination(diff+1, limit)
+		s := randCombination(ct, limit)
 		var i uint64 = 0
 		for v := range s {
 			n := d.times.FindByRank(v + beginRank)
@@ -263,7 +262,8 @@ func (d *Distribution) Samples(limit uint64,
 			i++
 		}
 	}
-	return m, diff + 1
+
+	return m, ct
 }
 
 // Robert Floyd's sampling algorithm

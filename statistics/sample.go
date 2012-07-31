@@ -34,6 +34,7 @@ func (s *Sample) Add(v int64) SampleElement {
 	x := float64(v)
 	n := float64(s.Count())
 
+	// http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
 	delta := x - s.mean
 	deltaOverN := delta / n
 	a := delta * deltaOverN * deltaOverN * (n - 1.0)
