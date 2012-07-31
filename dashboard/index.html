@@ -40,8 +40,8 @@
       }
 
       canvas#heatmap{
-        padding-top: 5px;
-        padding-bottom: 5px;
+        margin-top: 5px;
+        margin-bottom: 5px;
       }
 
     </style>
@@ -103,21 +103,16 @@ KDEInterval = 10000,
 heatmapInterval = 1000
 
 function MetricRow(name){
-  var graphs = {}
-  var graphcount = 0
-  var graphdiv = d3.select("#graphs").append("div").attr("class", "graph")
-  var data
-
+  this.graphs = {}
+  this.graphcount = 0
+  this.graphdiv = d3.select("#graphs").append("div").attr("class", "graph")
   this.row = null
   this.name = name
+  this.data = null
 
-  this.setData = function(a){
-    data = a
-  }
-
-  // a reference to actual data variable, not the object in it
   this.getDataFunc = function(){
-    return function(){return data}
+    var m = this
+    return function(){ return m.data }
   }
 
   this.drawRow = function(vals){
@@ -142,30 +137,30 @@ function MetricRow(name){
   }
 
   this.graphToggle = function(graphname, accessor, Constructor, color){
+    var m = this
     return this.clickableCell(function(cell){
-      if(graphs[graphname] != null){
-        graphcount--
-        if(graphcount == 0){
-          graphdiv.style("padding", "0")
-          graphdiv.select("h3#title").remove()
+      if(m.graphs[graphname] != null){
+        m.graphcount--
+        if(m.graphcount == 0){
+          m.graphdiv.style("padding", "0")
+          m.graphdiv.select("h3#title").remove()
         }
 
-        graphs[graphname].destroy()
-        delete graphs[graphname]
+        m.graphs[graphname].destroy()
+        delete m.graphs[graphname]
 
         cell.style("background-color", "transparent")
       } else {
-        if(graphcount == 0){
-          graphdiv.style("padding", "5px")
-          graphdiv.append("h3").attr("id", "title").text(name)
+        if(m.graphcount == 0){
+          m.graphdiv.style("padding", "5px")
+          m.graphdiv.append("h3").attr("id", "title").text(m.name)
         }
-        graphcount++
+        m.graphcount++
 
-        graphs[graphname] = new Constructor(graphname, accessor, graphdiv)
+        m.graphs[graphname] = new Constructor(graphname, accessor, m.graphdiv)
 
         cell.style("background-color", color)
       }
-      $("#graphs").masonry("reload")
     })
   }
 }
@@ -192,7 +187,7 @@ function MetricRowUpdater(name, type){
   this.update = function(){
     $.getJSON("/metric", {"name" : name},
     function(d){
-      row.metric.setData(d.Value)
+      row.data = d.Value
       row.draw()
     })
   }
@@ -209,9 +204,9 @@ MetricRowUpdater.updateAll = function(){
 
 
 function CounterRow(name){
+  MetricRow.apply(this)
   this.name = name
-  this.metric = new MetricRow(name)
-  var data = this.metric.getDataFunc()
+  var data = this.getDataFunc()
 
   this.draw = function(){
     var updated = new Date(data().LastUpdated)
@@ -221,28 +216,28 @@ function CounterRow(name){
       updated.toLocaleTimeString()
     ]
 
-    this.metric.drawRow(row)
+    this.drawRow(row)
   }
 
   this.makeToggles = function(){
     var row = [
       null,
-      this.metric.graphToggle("Value", function(){return data().Value},
+      this.graphToggle("Value", function(){return data().Value},
         CubismGraph, "yellow"),
       null
     ]
 
-    this.metric.drawRow(row)
+    this.drawRow(row)
   }
 
-  this.metric.row = d3.select("#counters").append("tr")
+  this.row = d3.select("#counters").append("tr")
   this.makeToggles()
 }
 
 function DistributionRow(name){
+  MetricRow.apply(this)
   this.name = name
-  this.metric = new MetricRow(name)
-  var data = this.metric.getDataFunc()
+  var data = this.getDataFunc()
 
   var cubismToggles = [
     ["Mean", function(){return data().Mean}],
@@ -267,34 +262,34 @@ function DistributionRow(name){
       row.push(cubismToggles[i][1]())
     }
 
-    this.metric.drawRow(row)
+    this.drawRow(row)
   }
 
   this.makeToggles = function(){
     var name = this.name
     var row = [
-      this.metric.graphToggle("heatmap",
+      this.graphToggle("heatmap",
         function(){ return {name: name, window: data().Window} },
         HeatmapUpdater, "lightgreen"),
-      this.metric.graphToggle("samples", function(){ return name },
+      this.graphToggle("samples", function(){ return name },
         KDEGraphUpdater, "lightgreen")
     ]
     for(var i = 0; i < cubismToggles.length; i++){
-      row.push(this.metric.graphToggle(cubismToggles[i][0],
+      row.push(this.graphToggle(cubismToggles[i][0],
         cubismToggles[i][1], CubismGraph, "lightgreen"))
     }
 
-    this.metric.drawRow(row)
+    this.drawRow(row)
   }
 
-  this.metric.row = d3.select("#distributions").append("tr")
+  this.row = d3.select("#distributions").append("tr")
   this.makeToggles()
 }
 
 function GaugeRow(name){
+  MetricRow.apply(this)
   this.name = name
-  this.metric = new MetricRow(name)
-  var data = this.metric.getDataFunc()
+  var data = this.getDataFunc()
 
   this.draw = function(){
     var updated = new Date(data().LastUpdated)
@@ -304,16 +299,16 @@ function GaugeRow(name){
     } else {
       str = data().Value
     }
-    this.metric.drawRow([name, str, updated.toLocaleTimeString()])
+    this.drawRow([name, str, updated.toLocaleTimeString()])
   }
 
-  this.metric.row = d3.select("#gauges").append("tr")
+  this.row = d3.select("#gauges").append("tr")
 }
 
 function MeterRow(name){
+  MetricRow.apply(this)
   this.name = name
-  this.metric = new MetricRow(name)
-  var data = this.metric.getDataFunc()
+  var data = this.getDataFunc()
 
   var toggles = [
     ["Value", function(){return data().Value}],
@@ -334,21 +329,21 @@ function MeterRow(name){
     var updated = new Date(data().LastUpdated)
     row.push(updated.toLocaleTimeString())
 
-    this.metric.drawRow(row)
+    this.drawRow(row)
   }
 
   this.makeToggles = function(){
     var row = [null]
     for(var i = 0; i < toggles.length; i++){
-      row.push(this.metric.graphToggle(toggles[i][0], toggles[i][1],
+      row.push(this.graphToggle(toggles[i][0], toggles[i][1],
         CubismGraph, "pink"))
     }
     row.push(null)
 
-    this.metric.drawRow(row)
+    this.drawRow(row)
   }
 
-  this.metric.row = d3.select("#meters").append("tr")
+  this.row = d3.select("#meters").append("tr")
   this.makeToggles()
 }
 
@@ -372,11 +367,15 @@ function HeatmapUpdater(name, accessor, div){
         n = heatmap.getHRes()
 
         var w = accessor().window/1000000
-        interval = Math.ceil(w/n/heatmapInterval)
+        interval = Math.floor(w/n/heatmapInterval)
+        if(interval == 0)
+          interval++
         interval *= heatmapInterval
 
         now = new Date
         for(var i = n; i >= 0; i--){
+          if(interval * i > w)
+            continue
           u.update(new Date(now.getTime() - interval * i))
         }
 
@@ -397,7 +396,7 @@ function HeatmapUpdater(name, accessor, div){
        "begin" : begin.toISOString(),
        "end" : end.toISOString()},
       function(d){
-        heatmap.draw(d.Value.Samples, newest, oldest)
+        heatmap.draw(d.Value.Samples, newest, oldest, d.Value.Count)
       })
   }
 
@@ -429,32 +428,89 @@ HeatmapUpdater.updateAll = function(){
 function Heatmap(div, range){
   var w = 345, wmargin = 60, h = 100, hmargin = 20
   var shiftw = 5, nbins = 20
+  var newtime, oldtime
+  var hists = []
 
-  var elem = div.append("canvas").attr("id", "heatmap")
+  var owndiv = div.append("div")
+  var canvas = owndiv.append("canvas").attr("id", "heatmap")
     .attr("width", w + wmargin).attr("height", h + hmargin)
-  var ctx = elem[0][0].getContext('2d')
+  var ctx = canvas.node().getContext('2d')
 
-  var newest = null
+  ctx.fillStyle = "black"
+  ctx.fillRect(0, 0, w, h)
+
+  var mousemovediv = owndiv.append("div").attr("id", "mousevalue")
+  var mouse
+
+  var realSizeTotal = 0
+
+  var cleanMousemove = function(){
+    mouse = null
+    mousemovediv.text("")
+  }
+
+  var updateMousemove = function(){
+    if(mouse == null)
+      return
+    var x = mouse[0]
+    var y = mouse[1]
+
+    if(x >= w || y >= h){
+      cleanMousemove()
+      return
+    }
+
+    var i = Math.floor(x/shiftw) + hists.length - w/shiftw
+    if(i < 0){
+      str = "No data"
+      mousemovediv.text(str)
+      return
+    }
+
+    var t = new Date(x/w * (newtime - oldtime) + oldtime)
+    var j = Math.floor((h - y - 1)/h * nbins)
+    var bin = hists[i][j]
+    var str = "T: " + t.toLocaleTimeString() + " "
+    str += "Rng: [" + Math.floor(bin.x).toPrecision(3) + ", "
+    str += Math.floor(bin.x + bin.dx).toPrecision(3) + ") "
+    str += "N: " + bin.y
+    str += " Bin: " + Math.floor(100 * bin.y / hists[i].total) + "%"
+    str += " Tot: " + (100 * bin.y / realSizeTotal).toPrecision(3) + "%"
+
+    mousemovediv.text(str)
+  }
+
+  canvas.on("mousemove", function(){
+    mouse = d3.mouse(this)
+    updateMousemove(mouse)
+  })
+
+  canvas.on("mouseout", cleanMousemove)
 
   var colormap = function(v){
-    var lightness = 15 + 0.6 * v
-    var hue = 240 - 3.6 * v
+    var lightness = 15 + 60 * v
+    var hue = 240 - 360 * v
     return "hsl(" + hue + ", 100%, " + lightness + "%)"
   }
 
-  ctx.fillStyle = colormap(0)
-  ctx.fillRect(0, 0, w, h)
-
-  this.draw = function(arr, newest, oldest){
+  this.draw = function(arr, newest, oldest, realsize){
     var hist = d3.layout.histogram().range(range).bins(nbins)
     var bins = hist(arr)
+    bins.total = realsize
+
+    hists.push(bins)
+    realSizeTotal += realsize
+    while(hists.length > w/shiftw){
+      var v = hists.shift()
+      realSizeTotal -= v.total
+    }
 
     ctx.drawImage(ctx.canvas, shiftw, 0, w - shiftw, h, 0, 0, w - shiftw, h)
 
     ctx.save()
     ctx.translate(w - shiftw, 0)
     for(var i = 0; i < bins.length; i++){
-      ctx.fillStyle = colormap(bins[i].y)
+      ctx.fillStyle = colormap(bins[i].y / realSizeTotal * hists.length)
       ctx.fillRect(0, (bins.length - i - 1) * h / nbins, shiftw, h / nbins)
     }
     ctx.restore()
@@ -467,8 +523,9 @@ function Heatmap(div, range){
     ctx.save()
     ctx.translate(0, h)
     ctx.clearRect(0, 0, w, hmargin)
-
-    var mid = new Date((oldest.getTime() + newest.getTime()) / 2)
+    newtime = newest.getTime()
+    oldtime = oldest.getTime()
+    var mid = new Date((newtime + oldtime) / 2)
     ctx.fillText(oldest.toLocaleTimeString(), 0, 15)
     ctx.fillText(mid.toLocaleTimeString(), (w-50)/2, 15)
     ctx.fillText(newest.toLocaleTimeString(), w-50, 15)
@@ -484,14 +541,18 @@ function Heatmap(div, range){
     ctx.fillText(formatFixedLen(range[0]), 5, h - 2)
     ctx.restore()
     ctx.restore()
+
+    updateMousemove(mouse)
   }
 
   this.getHRes = function(){
     return w/shiftw
   }
 
+  $("#graphs").masonry("reload")
   this.destroy = function(data){
-    elem.remove()
+    canvas.remove()
+    $("#graphs").masonry("reload")
   }
 }
 
@@ -540,6 +601,8 @@ function CubismGraph(name, accessor, div){
   var rule = graph.append("div").data([]).attr("class", "rule")
     .call(context.rule())
 
+  $("#graphs").masonry("reload")
+
   this.destroy = function(){
     graph.select(".axis")
       .call(context.axis().remove).remove()
@@ -548,6 +611,7 @@ function CubismGraph(name, accessor, div){
     graph.select(".rule")
       .call(context.rule().remove).remove()
     graph.remove()
+    $("#graphs").masonry("reload")
   }
 }
 
@@ -567,21 +631,71 @@ function KDEGraphUpdater(name, accessor, div){
 
   this.destroy = function(){
     graph.destroy()
+    var g = KDEGraphUpdater.graphs
+    for(i in g){
+      if(g[i] == this){
+        g.splice(i, 1)
+        break
+      }
+    }
   }
 }
 
 KDEGraphUpdater.graphs = []
 
 function KDEGraph(div){
+  var w = 345, h = 240, wmargin = 55, hmargin = 20
+
   var svg = div.append("svg").attr("id", "samples")
+    .attr("width", w + wmargin)
+    .attr("height", h + hmargin)
+
   var path = svg.append("path").style("fill", "steelblue")
   var xgroup = svg.append("g").attr("id", "xlabel")
 
-  var w = 345, h = 240, wmargin = 55, hmargin = 40
+  var nbins = 20
+  var kdearr, hist, yscl, xscl
+
+  var mousemovediv = div.append("div").attr("id", "mousevalue")
+  var mousemoveline = svg.append("line").attr("id", "mouseline")
+    .attr("y1", 0).attr("y2", h)
+    .style("stroke", "red").style("display", "none")
+  var mouse
+
+  var cleanMousemove = function(){
+    mouse = null
+    mousemovediv.text(null)
+
+    mousemoveline.style("display", "none")
+  }
+
+  var updateMousemove = function(){
+    if(mouse == null)
+      return
+    var x = mouse[0]
+    var y = mouse[1]
+
+    if(x >= w || y >= h){
+      cleanMousemove()
+      return
+    }
+
+    mousemoveline.style("display", "inline")
+    var v = kdearr[x]
+    var str = "V: " + formatFixedLen(v[0])
+    str += " P: " + formatFixedLen(v[1])
+    mousemovediv.text(str)
+    mousemoveline.attr("x1", mouse[0]).attr("x2", mouse[0])
+  }
+
+  svg.on("mousemove", function(){
+    mouse = d3.mouse(this)
+    updateMousemove()
+  })
+
+  svg.on("mouseout", cleanMousemove)
 
   this.draw = function(data){
-    svg.attr("width", w + wmargin)
-      .attr("height", h + hmargin)
 
     var rangeslice = dataRangeSlice(data, 0.1, 0.9, 2)
     var range = rangeslice[0]
@@ -591,14 +705,12 @@ function KDEGraph(div){
 
     var kde = science.stats.kde().sample(slice)
     kde.bandwidth(science.stats.bandwidth.nrd0)
-    var kdearr = kde(d3.range(range[0], range[1] + diff/2/w, diff/w))
-
+    kdearr = kde(d3.range(range[0], range[1] + diff/2/w, diff/w))
 
     ymax = d3.max(kdearr, function(d){ return d[1] })
-    var xscl = d3.scale.linear().domain(range).range([0, w])
-    var yscl = d3.scale.linear().domain([0, ymax]).nice().range([h, 0])
+    xscl = d3.scale.linear().domain(range).range([0, w])
+    yscl = d3.scale.linear().domain([0, ymax]).nice().range([h, 0])
       .clamp(true)
-
 
     var line = d3.svg.line()
       .x(function(d) { return xscl(d[0]) })
@@ -629,17 +741,14 @@ function KDEGraph(div){
       .attr("y", h + 10)
       .attr("dy", ".35em")
     xlabels.text(formatFixedLen)
+
+    updateMousemove()
   }
 
+  $("#graphs").masonry("reload")
   this.destroy = function(){
-    var g = KDEGraphUpdater.graphs
-    for(i in g){
-      if(g[i] == this){
-        g.splice(i, 1)
-        break
-      }
-    }
     svg.remove()
+    $("#graphs").masonry("reload")
   }
 }
 
@@ -713,6 +822,9 @@ function dataRangeSlice(data, pmin, pmax, mul){
   return [[smin, smax], sorted.slice(imin, imax)]
 }
 
+function fixGraphLayout(){
+  $("#graphs").masonry("reload")
+}
 
 $(document).ready(function(){
   $.getJSON("/list", {}, function(list){
