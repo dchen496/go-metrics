@@ -131,5 +131,7 @@ func NewHTTPServer(r *metrics.Registry, addr string) HTTPServer {
 		WriteTimeout: 10 * time.Second,
 	}
 
+	go h.ListenAndServe()
+
 	return h
 }
