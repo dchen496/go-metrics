@@ -48,7 +48,14 @@
   </head>
   <body>
     <h3>{{.Name}} - Metrics Dashboard</h3>
-    <div id="list"></div>
+    <p>Usage: Click on a checkbox to show/hide the metric.
+    Click on a table cell to show its corresponding graph.
+    Not all table cells have graphs. Clicking on a Distribution's name
+    will show its heatmap. Clicking on its count will show a smoothed
+    histogram.
+    </p>
+    <button id="hidehides"></button>
+    <div id="hides" style="display:none"></div>
     <div id="metrics">
       <h3>Counters</h3>
       <table id="counters">
@@ -96,7 +103,6 @@
     <script src="http://square.github.com/cubism/cubism.v1.js"></script>
     <script src="http://masonry.desandro.com/jquery.masonry.min.js"></script>
     <script>
-
 
 var tableInterval = 1000,
 KDEInterval = 10000,
@@ -163,27 +169,20 @@ function MetricRow(name){
       }
     })
   }
+
+  this.destroy = function(){
+    for(i in this.graphs)
+      this.graphs[i].destroy()
+    this.graphcount = 0
+    this.row.remove()
+    this.graphdiv.remove()
+  }
 }
 
 MetricRowUpdater.metrics = []
 
 function MetricRowUpdater(name, type){
   var row
-  switch(type){
-  case "counter":
-    row = new CounterRow(name)
-    break
-  case "distribution":
-    row = new DistributionRow(name)
-    break
-  case "gauge":
-    row = new GaugeRow(name)
-    break
-  case "meter":
-    row = new MeterRow(name)
-    break
-  }
-
   this.update = function(){
     $.getJSON("/metric", {"name" : name},
     function(d){
@@ -191,6 +190,50 @@ function MetricRowUpdater(name, type){
       row.draw()
     })
   }
+
+  var show
+  var hider = d3.select("#hides").append("div")
+  var checkbox = hider.append("input").attr("type", "checkbox")
+  var t = this
+  checkbox.on("click", function(){
+    if(show)
+      t.hide()
+    else
+      t.display()
+  })
+
+  hider.append("span").text(name)
+
+  this.display = function(){
+    show = true
+    checkbox.attr("checked", "yes")
+
+    switch(type){
+    case "counter":
+      row = new CounterRow(name)
+      break
+    case "distribution":
+      row = new DistributionRow(name)
+      break
+    case "gauge":
+      row = new GaugeRow(name)
+      break
+    case "meter":
+      row = new MeterRow(name)
+      break
+    }
+    this.update()
+  }
+
+  this.hide = function(){
+    show = false
+    checkbox.attr("checked", "false")
+
+    row.destroy()
+    delete row
+  }
+
+  this.display()
 
   MetricRowUpdater.metrics.push(this)
 }
@@ -201,7 +244,6 @@ MetricRowUpdater.updateAll = function(){
     metrics[i].update()
   }
 }
-
 
 function CounterRow(name){
   MetricRow.apply(this)
@@ -461,6 +503,7 @@ function Heatmap(div, range){
     }
 
     var i = Math.floor(x/shiftw) + hists.length - w/shiftw
+
     if(i < 0){
       str = "No data"
       mousemovediv.text(str)
@@ -473,7 +516,7 @@ function Heatmap(div, range){
     var str = "T: " + t.toLocaleTimeString() + " "
     str += "Rng: [" + Math.floor(bin.x).toPrecision(3) + ", "
     str += Math.floor(bin.x + bin.dx).toPrecision(3) + ") "
-    str += "N: " + bin.y
+    str += "N: " + bin.y.toPrecision(3)
     str += " Bin: " + Math.floor(100 * bin.y / hists[i].total) + "%"
     str += " Tot: " + (100 * bin.y / realSizeTotal).toPrecision(3) + "%"
 
@@ -498,6 +541,12 @@ function Heatmap(div, range){
     var bins = hist(arr)
     bins.total = realsize
 
+    if(arr.length != 0){
+      for(i in bins){
+        bins[i].y *= realsize/arr.length
+      }
+    }
+
     hists.push(bins)
     realSizeTotal += realsize
     while(hists.length > w/shiftw){
@@ -510,7 +559,11 @@ function Heatmap(div, range){
     ctx.save()
     ctx.translate(w - shiftw, 0)
     for(var i = 0; i < bins.length; i++){
-      ctx.fillStyle = colormap(bins[i].y / realSizeTotal * hists.length)
+      if(realSizeTotal == 0)
+        ctx.fillStyle = colormap(0)
+      else
+        ctx.fillStyle = colormap(bins[i].y / realSizeTotal * hists.length)
+
       ctx.fillRect(0, (bins.length - i - 1) * h / nbins, shiftw, h / nbins)
     }
     ctx.restore()
@@ -827,6 +880,23 @@ function fixGraphLayout(){
 }
 
 $(document).ready(function(){
+  var showhides = false
+
+  var togglehides = function(){
+    t = d3.select(this)
+    if(showhides){
+      d3.select("#hides").style("display", "none")
+      t.text("Show metric show/hide list")
+    } else {
+      d3.select("#hides").style("display", "inline")
+      t.text("Hide metric show/hide list")
+    }
+    showhides = !showhides
+  }
+
+  d3.select("#hidehides").on("click", togglehides)
+    .each(togglehides)
+
   $.getJSON("/list", {}, function(list){
     list.sort()
     for(i in list){
@@ -838,7 +908,6 @@ $(document).ready(function(){
       columnWidth: 410
     })
 
-    MetricRowUpdater.updateAll()
     setInterval(function(){MetricRowUpdater.updateAll()}, tableInterval)
     setInterval(function(){KDEGraphUpdater.updateAll()}, KDEInterval)
     setInterval(function(){HeatmapUpdater.updateAll()}, heatmapInterval)
