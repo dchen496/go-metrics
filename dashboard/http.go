@@ -15,7 +15,7 @@ type HTTPServer struct {
 }
 
 func (h *HTTPServer) handlerIndex(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("index.html")
+	tmpl, err := template.New("index.html").Parse(index_html)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -23,75 +23,46 @@ func (h *HTTPServer) handlerIndex(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, h.registry)
 }
 
+func (h *HTTPServer) handlerAll(w http.ResponseWriter, r *http.Request) {
+	m := make(map[string]TypeValue)
+	l := h.registry.ListMetrics()
+
+	for i, metric := range l {
+		m[i] = TypeValueMetric(metric)
+	}
+
+	resp, err := json.Marshal(m)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "%s\n", resp)
+}
+
 func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 
 	metric := h.registry.FindS(name)
-	var toMarshal struct {
-		Type  string
-		Value interface{}
-	}
-
-	switch m := metric.(type) {
-	case nil:
+	if metric == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
-
-	case *metrics.Counter:
-		toMarshal.Type = "counter"
-		toMarshal.Value = m.Snapshot()
-
-	case *metrics.Distribution:
-		if r.FormValue("samples") == "true" {
-			var begin, end time.Time
-			beginptr, endptr := &begin, &end
-			begin, err := time.Parse(time.RFC3339, r.FormValue("begin"))
-			if err != nil {
-				beginptr = nil
-			}
-			end, err = time.Parse(time.RFC3339, r.FormValue("end"))
-			if err != nil {
-				endptr = nil
-			}
-
-			var limit uint64
-			fmt.Sscanf(r.FormValue("limit"), "%d", &limit)
-
-			toMarshal.Type = "distribution_sample"
-			s, c := m.Samples(limit, beginptr, endptr)
-			var t struct {
-				Samples []int64
-				Count   uint64
-			}
-			t.Samples = s
-			t.Count = c
-			toMarshal.Value = t
-
-		} else {
-			toMarshal.Type = "distribution"
-			toMarshal.Value = m.Snapshot()
-		}
-
-	case *metrics.Gauge:
-		snapshot := m.Snapshot()
-		var stringified struct {
-			Value       string
-			LastUpdated time.Time
-		}
-		if snapshot.Value != nil {
-			stringified.Value = snapshot.Value.String()
-		}
-		stringified.LastUpdated = snapshot.LastUpdated
-
-		toMarshal.Type = "gauge"
-		toMarshal.Value = stringified
-
-	case *metrics.Meter:
-		toMarshal.Type = "meter"
-		toMarshal.Value = m.Snapshot()
 	}
 
-	resp, err := json.MarshalIndent(toMarshal, "", "\t")
+	var resp []byte
+	var err error
+
+	d, ok := metric.(*metrics.Distribution)
+	if ok && r.FormValue("samples") == "true" {
+		tv := TypeValueSamples(d, r.FormValue("begin"),
+			r.FormValue("end"), r.FormValue("limit"))
+
+		resp, err = json.Marshal(tv)
+	} else {
+		tv := TypeValueMetric(metric)
+
+		resp, err = json.Marshal(tv)
+	}
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -139,6 +110,10 @@ func NewHTTPServer(r *metrics.Registry, addr string) HTTPServer {
 	handler.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
 			h.handlerIndex(w, r)
+		})
+	handler.HandleFunc("/all",
+		func(w http.ResponseWriter, r *http.Request) {
+			h.handlerAll(w, r)
 		})
 	handler.HandleFunc("/metric",
 		func(w http.ResponseWriter, r *http.Request) {
