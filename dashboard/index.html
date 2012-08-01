@@ -632,7 +632,7 @@ function CubismGraph(name, accessor, div){
       if(queue.length > 7)
         queue.shift()
 
-      while(start < stop){
+      for(var i = 0; start < stop; i++){
         start += step
         res.push(queue[i])
       }
