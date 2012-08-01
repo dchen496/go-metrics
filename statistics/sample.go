@@ -65,7 +65,7 @@ func (s *Sample) Remove(se SampleElement) {
 		return
 	}
 
-	n := float64(s.Count())
+	n := float64(s.Count()) // n is at least 2
 	x := float64(se.node.Key())
 
 	delta := n / (n - 1.0) * (x - s.mean)
@@ -87,34 +87,27 @@ func (s *Sample) Remove(se SampleElement) {
 }
 
 func (s *Sample) Mean() float64 {
-	return s.mean
+	return toFinite(s.mean)
 }
 
 func (s *Sample) Variance() float64 {
-	if s.Count() == 1 {
-		return 0
-	}
-	return s.secondCMtimesN / float64(s.Count()-1)
+	return toFinite(s.secondCMtimesN / float64(s.Count()-1))
 }
 
 func (s *Sample) StandardDeviation() float64 {
-	return math.Sqrt(s.Variance())
+	return toFinite(math.Sqrt(s.Variance()))
 }
 
 func (s *Sample) Skewness() float64 {
-	if s.secondCMtimesN == 0.0 {
-		return 0
-	}
 	r := math.Sqrt(float64(s.Count())) * s.thirdCMtimesN
-	return r / math.Pow(s.secondCMtimesN, 1.5)
+	v := r / math.Pow(s.secondCMtimesN, 1.5)
+	return toFinite(v)
 }
 
 func (s *Sample) Kurtosis() float64 {
-	if s.secondCMtimesN == 0.0 {
-		return 0
-	}
 	r := float64(s.Count()) * s.fourthCMtimesN
-	return r / s.secondCMtimesN / s.secondCMtimesN
+	v := r / s.secondCMtimesN / s.secondCMtimesN
+	return toFinite(v)
 }
 
 func (s *Sample) Percentile(p float64) int64 {
@@ -137,4 +130,11 @@ func (s *Sample) Percentile(p float64) int64 {
 
 func (se SampleElement) Value() int64 {
 	return se.node.Key()
+}
+
+func toFinite(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0
+	}
+	return v
 }

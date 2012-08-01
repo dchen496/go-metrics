@@ -12,8 +12,9 @@ const (
 
 func testSampleInit() *Sample {
 	s := NewSample()
-	for _, v := range testSampleSet {
-		s.Add(v)
+	m := make([]SampleElement, len(testSampleSet))
+	for i, v := range testSampleSet {
+		m[i] = s.Add(v)
 	}
 	return s
 }
@@ -99,15 +100,21 @@ func TestSampleKurtosis(t *testing.T) {
 		1.943071395965790, 1.978048762493122, 1.982319611215673)
 }
 
-func TestSampleRemoveLast(t *testing.T) {
+func TestSampleRemoveLastTwo(t *testing.T) {
 	s := NewSample()
 	a := s.Add(1)
 	b := s.Add(2)
 	s.Remove(a)
+	if !(s.mean == 2 && s.secondCMtimesN == 0 &&
+		s.thirdCMtimesN == 0 && s.fourthCMtimesN == 0 && s.Count() == 1) {
+		t.Errorf("Sample stats not reset. "+
+			"Got: mean:%f 2CM_N:%f 3CM_N:%f 4CM_N:%f count %d",
+			s.mean, s.secondCMtimesN, s.thirdCMtimesN, s.fourthCMtimesN, s.Count())
+	}
 	s.Remove(b)
 	if !(s.mean == 0 && s.secondCMtimesN == 0 &&
 		s.thirdCMtimesN == 0 && s.fourthCMtimesN == 0 && s.Count() == 0) {
-		t.Errorf("Sample stats not reset."+
+		t.Errorf("Sample stats not reset. "+
 			"Got: mean:%f 2CM_N:%f 3CM_N:%f 4CM_N:%f count %d",
 			s.mean, s.secondCMtimesN, s.thirdCMtimesN, s.fourthCMtimesN, s.Count())
 	}
