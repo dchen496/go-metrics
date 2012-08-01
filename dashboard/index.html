@@ -104,6 +104,8 @@
     <script src="http://masonry.desandro.com/jquery.masonry.min.js"></script>
     <script>
 
+"use strict"
+
 var tableInterval = 1000,
 KDEInterval = 10000,
 heatmapInterval = 1000
@@ -125,7 +127,7 @@ function MetricRow(name){
     var cells = this.row.selectAll("td").data(vals)
     cells.enter().append("td")
     cells.each(function(d){
-      cell = d3.select(this)
+      var cell = d3.select(this)
       if($.isFunction(d)){
         d(cell)
       } else {
@@ -171,7 +173,7 @@ function MetricRow(name){
   }
 
   this.destroy = function(){
-    for(i in this.graphs)
+    for(var i in this.graphs)
       this.graphs[i].destroy()
     this.graphcount = 0
     this.row.remove()
@@ -230,7 +232,6 @@ function MetricRowUpdater(name, type){
     checkbox.attr("checked", "false")
 
     row.destroy()
-    delete row
   }
 
   this.display()
@@ -239,8 +240,8 @@ function MetricRowUpdater(name, type){
 }
 
 MetricRowUpdater.updateAll = function(){
-  metrics = MetricRowUpdater.metrics
-  for(i in metrics){
+  var metrics = MetricRowUpdater.metrics
+  for(var i in metrics){
     metrics[i].update()
   }
 }
@@ -403,7 +404,7 @@ function HeatmapUpdater(name, accessor, div){
       function(d){
         d = d.Value
         var rangeslice = dataRangeSlice(d.Samples, 0.2, 0.8, 2)
-        range = rangeslice[0]
+        var range = rangeslice[0]
 
         heatmap = new Heatmap(div, range)
         n = heatmap.getHRes()
@@ -414,7 +415,7 @@ function HeatmapUpdater(name, accessor, div){
           interval++
         interval *= heatmapInterval
 
-        now = new Date
+        var now = new Date
         for(var i = n; i >= 0; i--){
           if(interval * i > w)
             continue
@@ -446,7 +447,7 @@ function HeatmapUpdater(name, accessor, div){
 
   this.destroy = function(data){
     var h = HeatmapUpdater.heatmaps
-    for(i in h){
+    for(var i in h){
       if(h[i][0] == this){
         h.splice(i, 1)
         break
@@ -685,7 +686,7 @@ function KDEGraphUpdater(name, accessor, div){
   this.destroy = function(){
     graph.destroy()
     var g = KDEGraphUpdater.graphs
-    for(i in g){
+    for(var i in g){
       if(g[i] == this){
         g.splice(i, 1)
         break
@@ -760,7 +761,7 @@ function KDEGraph(div){
     kde.bandwidth(science.stats.bandwidth.nrd0)
     kdearr = kde(d3.range(range[0], range[1] + diff/2/w, diff/w))
 
-    ymax = d3.max(kdearr, function(d){ return d[1] })
+    var ymax = d3.max(kdearr, function(d){ return d[1] })
     xscl = d3.scale.linear().domain(range).range([0, w])
     yscl = d3.scale.linear().domain([0, ymax]).nice().range([h, 0])
       .clamp(true)
@@ -807,7 +808,7 @@ function KDEGraph(div){
 
 KDEGraphUpdater.updateAll = function(){
   var g = KDEGraphUpdater.graphs
-  for(i in g){
+  for(var i in g){
     g[i].update()
   }
 }
@@ -840,7 +841,7 @@ function formatFixedLen(n){
   if(isNaN(n))
     return n
 
-  fix = n.toPrecision(6)
+  var fix = n.toPrecision(6)
   if(fix.length <= 7){
     return fix
   } else {
@@ -883,7 +884,7 @@ $(document).ready(function(){
   var showhides = false
 
   var togglehides = function(){
-    t = d3.select(this)
+    var t = d3.select(this)
     if(showhides){
       d3.select("#hides").style("display", "none")
       t.text("Show metric show/hide list")
@@ -899,8 +900,9 @@ $(document).ready(function(){
 
   $.getJSON("/list", {}, function(list){
     list.sort()
-    for(i in list){
-      new MetricRowUpdater(list[i][0], list[i][1])
+    var throwaway = []
+    for(var i in list){
+      throwaway.push(new MetricRowUpdater(list[i][0], list[i][1]))
     }
 
     $("#graphs").masonry({
