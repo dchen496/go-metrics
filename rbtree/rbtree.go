@@ -103,7 +103,6 @@ func (t *Tree) UpperBound(key int64) *Node {
 func (t *Tree) Insert(key int64, value interface{}) *Node {
 	prev := t.none
 	for n := t.root; n != t.none; {
-		n.size++
 		prev = n
 		if key < n.key {
 			n = n.left
@@ -112,7 +111,7 @@ func (t *Tree) Insert(key int64, value interface{}) *Node {
 		}
 	}
 
-	n := &Node{false, 1, prev, t.none, t.none, key, value}
+	n := &Node{false, 0, prev, t.none, t.none, key, value}
 	if prev == t.none {
 		t.root = n
 	} else if key < prev.key {
@@ -120,6 +119,7 @@ func (t *Tree) Insert(key int64, value interface{}) *Node {
 	} else {
 		prev.right = n
 	}
+	t.updateSize(n)
 	t.insertFix(n)
 	return n
 }
