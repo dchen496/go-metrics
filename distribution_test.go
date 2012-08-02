@@ -154,6 +154,7 @@ func TestDistributionRemoveFromPopulation(t *testing.T) {
 func TestDistributionSamples(t *testing.T) {
 	d := testDistributionInit()
 	d.Reset()
+	d.timeBase = testTime
 	baseExpected := make([]int64, 100)
 	for i := int64(0); i < 100; i++ {
 		d.add(i, testTime.Add(time.Duration(i)), 0)
@@ -210,8 +211,8 @@ func TestDistributionSamples(t *testing.T) {
 	}
 
 	s, n = d.Samples(30, &beginTime, &badEndTime)
-	if len(s) != 0 || n != 0 {
-		t.Errorf(errStr, "bad end", len(s), n, 0, 0)
+	if len(s) != 0 || n != -1 {
+		t.Errorf(errStr, "bad end", len(s), n, 0, -1)
 	}
 }
 

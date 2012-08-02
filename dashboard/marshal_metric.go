@@ -67,7 +67,7 @@ func TypeValueSamples(d *metrics.Distribution,
 
 	var t struct {
 		Samples []int64
-		Count   uint64
+		Count   int64
 	}
 	t.Samples, t.Count = d.Samples(limit, beginptr, endptr)
 

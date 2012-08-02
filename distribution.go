@@ -207,13 +207,17 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 // Samples returns up to limit sample elements (unlimited if limit = 0)
 // from the Distribution. These are taken between a time interval
 // specified with begin (inclusive) and end (non-inclusive). 
-// If begin and/or end is nil, then it is ignored.
-// If begin or end are invalid, or begin is after end, 
-// an empty slice is returned.
-// The second return value is the actual number of samples in the
-// time interval specified.
+// The count is the actual number of samples in the
+// time interval specified. 
+//
+// Special cases: 
+// If begin and/or end is nil, then it is assumed to be the earliest possible // time (for begin) or the latest (for end).
+// If the end time is before the begin time, an empty slice and a count of 
+// -1 are returned.
+// If the end time is before the Distribution was created/reset, an empty 
+// slice and a count of -1 are returned.
 func (d *Distribution) Samples(limit uint64,
-	begin, end *time.Time) (vals []int64, count uint64) {
+	begin, end *time.Time) (vals []int64, count int64) {
 
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -240,6 +244,10 @@ func (d *Distribution) Samples(limit uint64,
 	}
 
 	if end != nil {
+		if end.Before(d.timeBase) {
+			return make([]int64, 0), -1
+		}
+
 		endNode = d.times.UpperBound(int64(end.Sub(d.timeBase)))
 		if endNode == nil {
 			return make([]int64, 0), 0
@@ -251,7 +259,7 @@ func (d *Distribution) Samples(limit uint64,
 	}
 
 	if endRank < beginRank {
-		return make([]int64, 0), 0
+		return make([]int64, 0), -1
 	}
 
 	ct := endRank - beginRank + 1
@@ -276,7 +284,7 @@ func (d *Distribution) Samples(limit uint64,
 		}
 	}
 
-	return m, ct
+	return m, int64(ct)
 }
 
 // Robert Floyd's sampling algorithm
