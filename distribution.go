@@ -32,6 +32,7 @@ type Distribution struct {
 	window         time.Duration
 	populationSize float64
 	maxSampleSize  uint64
+	rangeHint      [2]float64
 	lock           sync.RWMutex
 }
 
@@ -45,6 +46,7 @@ type DistributionSnapshot struct {
 	Percentiles       []int64
 	PopulationSize    float64
 	Window            time.Duration
+	RangeHint         [2]float64
 	LastUpdated       time.Time
 }
 
@@ -94,6 +96,16 @@ func (d *Distribution) SetWindow(nsec time.Duration) {
 	d.lock.Lock()
 	d.window = nsec
 	d.prune(time.Now())
+	d.lock.Unlock()
+}
+
+// Setting a range hint for a Distribution has no effect,
+// but it is exported in a DistributionSnapshot, where it may
+// be used externally. For example, if set, the dashboard uses 
+// this hint to size graphs.
+func (d *Distribution) SetRangeHint(min, max float64) {
+	d.lock.Lock()
+	d.rangeHint = [2]float64{min, max}
 	d.lock.Unlock()
 }
 
@@ -181,6 +193,7 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 		Percentiles:       make([]int64, len(DistributionPercentiles)),
 		PopulationSize:    d.populationSize,
 		Window:            d.window,
+		RangeHint:         d.rangeHint,
 		LastUpdated:       lastUpdated,
 	}
 	for i, v := range DistributionPercentiles {
