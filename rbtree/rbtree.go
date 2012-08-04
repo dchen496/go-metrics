@@ -3,8 +3,9 @@ package rbtree
 // rbtree implements a red-black tree. It can be used as a multimap.
 // It additionally allows finding nodes by rank.
 type Tree struct {
-	root *Node
-	none *Node
+	root      *Node
+	none      *Node
+	freeNodes []*Node
 }
 
 type Node struct {
@@ -18,11 +19,36 @@ type Node struct {
 }
 
 func New() *Tree {
-	n := &Node{black: true}
+	t := Tree{}
+	t.freeNodes = make([]*Node, 0, freeNodeCacheCap)
+	n := t.newNode()
+	*n = Node{black: true}
 	n.parent = n
 	n.left = n
 	n.right = n
-	return &Tree{n, n}
+	t.root = n
+	t.none = n
+	return &t
+}
+
+// lower demand on allocator & GC: cache free nodes
+const freeNodeCacheCap = 10
+
+func (t *Tree) newNode() *Node {
+	if len(t.freeNodes) > 0 {
+		r := t.freeNodes[len(t.freeNodes)-1]
+		t.freeNodes = t.freeNodes[0 : len(t.freeNodes)-1]
+		return r
+	}
+	return &Node{}
+}
+
+func (t *Tree) freeNode(n *Node) {
+	*n = Node{}
+	if len(t.freeNodes) >= cap(t.freeNodes) {
+		return
+	}
+	t.freeNodes = append(t.freeNodes, n)
 }
 
 func (t *Tree) Size() uint64 {
@@ -56,6 +82,9 @@ func (t *Tree) FindByRank(rank uint64) *Node {
 // Find returns nil if no node with the specified key exists.
 func (t *Tree) Find(key int64) *Node {
 	n := t.LowerBound(key)
+	if n == nil {
+		return nil
+	}
 	if n.key != key {
 		return nil
 	}
@@ -111,7 +140,8 @@ func (t *Tree) Insert(key int64, value interface{}) *Node {
 		}
 	}
 
-	n := &Node{false, 0, prev, t.none, t.none, key, value}
+	n := t.newNode()
+	*n = Node{false, 0, prev, t.none, t.none, key, value}
 	if prev == t.none {
 		t.root = n
 	} else if key < prev.key {
@@ -242,6 +272,7 @@ func (t *Tree) Remove(key int64) {
 	t.RemoveNode(n)
 }
 
+// Remember to clear pointers to the removed node.
 func (t *Tree) RemoveNode(n *Node) {
 	y := n
 	yBlack := y.black
@@ -272,6 +303,8 @@ func (t *Tree) RemoveNode(n *Node) {
 	if yBlack == true {
 		t.removeFix(x)
 	}
+	t.none.parent = t.none
+	t.freeNode(n)
 }
 
 func (t *Tree) updateSize(n *Node) {
@@ -285,18 +318,7 @@ func (t *Tree) updateSize(n *Node) {
 }
 
 func (t *Tree) transplant(dst *Node, src *Node) {
-	//remove...
-	oldp := src.parent
-	if src == src.parent.left {
-		oldp.left = t.none
-	} else if src == src.parent.right {
-		oldp.right = t.none
-	}
-	t.updateSize(oldp)
-
 	newp := dst.parent
-
-	//...and reattach
 	if newp == t.none {
 		t.root = src
 	} else if dst == newp.left {

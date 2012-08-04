@@ -22,7 +22,12 @@ func testInit() *Tree {
 	return rb
 }
 
-func testTreeStructure(t *testing.T, rb *Tree) {
+func testTreeStructure(t *testing.T, rb *Tree, data []int, removed *Node) {
+	needs := make(map[int]bool)
+	for _, v := range data {
+		needs[v*10] = true
+	}
+
 	if rb.root.black == false {
 		t.Errorf("Tree root is not black\n")
 	}
@@ -35,6 +40,17 @@ func testTreeStructure(t *testing.T, rb *Tree) {
 	}
 
 	for n := rb.FindByRank(0); n != nil; n = rb.Next(n) {
+		if n == rb.none {
+			t.Errorf("Unexpected sentinel")
+		}
+		if n == removed || n.left == removed || n.right == removed || n.parent == removed {
+			t.Errorf("Unexpected node")
+		}
+		if needs[int(n.key)] == false && data != nil {
+			t.Errorf("Unexpected key %d found in tree", n.key)
+		}
+		needs[int(n.key)] = false
+
 		if n.size != n.left.size+n.right.size+1 {
 			t.Errorf("Wrong size for node %d: Size: %d Left: %d Right: %d\n",
 				n.key, n.size, n.left.size, n.right.size)
@@ -74,6 +90,12 @@ func testTreeStructure(t *testing.T, rb *Tree) {
 			t.Errorf("Tree is not in the right order")
 		}
 	}
+
+	for _, v := range data {
+		if needs[v*10] == true {
+			t.Errorf("Key %d not found in tree", v)
+		}
+	}
 }
 
 func testKeyValue(t *testing.T, n *Node, value int64) {
@@ -93,9 +115,9 @@ func TestInsert(t *testing.T) {
 	rb := New()
 	rand.Seed(testRandSeed)
 	p := rand.Perm(testNumElements)
-	for _, v := range p {
+	for i, v := range p {
 		rb.Insert(int64(v)*10, fmt.Sprint(v*10))
-		testTreeStructure(t, rb)
+		testTreeStructure(t, rb, p[:i+1], nil)
 	}
 }
 
@@ -106,7 +128,7 @@ func TestDuplicateInsert(t *testing.T) {
 		p := rand.Perm(testNumElements)
 		for _, v := range p {
 			rb.Insert(int64(v)*10, fmt.Sprint(v*10))
-			testTreeStructure(t, rb)
+			testTreeStructure(t, rb, nil, nil)
 		}
 	}
 }
@@ -115,9 +137,15 @@ func TestRemove(t *testing.T) {
 	rb := testInit()
 	rand.Seed(testRandSeed * 2)
 	p := rand.Perm(testNumElements)
-	for _, v := range p {
-		testTreeStructure(t, rb)
+
+	testTreeStructure(t, rb, p, nil)
+
+	for i, v := range p {
+		n := rb.Find(int64(v) * 10)
 		rb.Remove(int64(v) * 10)
+		if rb.Size() != 0 {
+			testTreeStructure(t, rb, p[i+1:], n)
+		}
 	}
 	if rb.root != rb.none {
 		t.Errorf("Root is not none after removing all nodes\n")
