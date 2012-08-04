@@ -15,7 +15,7 @@ type HTTPServer struct {
 }
 
 func (h *HTTPServer) handlerIndex(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.New("index.html").Parse(index_html)
+	tmpl, err := template.New("index.html").Parse(asset("index.html"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

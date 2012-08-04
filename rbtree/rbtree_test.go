@@ -8,7 +8,7 @@ import (
 
 const (
 	testRandSeed          = 1234
-	testNumElements       = 1000
+	testNumElements       = 100
 	testBenchmarkElements = 1000000
 )
 
