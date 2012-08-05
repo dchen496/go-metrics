@@ -612,7 +612,7 @@ function Heatmap(div, range){
     // y axis
     ctx.save()
     ctx.translate(w, 0)
-    ctx.clearRect(0, 0, wmargin, h)
+    ctx.clearRect(0, 0, wmargin, h + hmargin)
     ctx.fillText(formatFixedLen(range[1]), 5, 20)
     ctx.fillText(formatFixedLen((range[0] + range[1])/2),
       5, Math.floor((h + 10)/2))
