@@ -185,12 +185,9 @@ MetricRowUpdater.metrics = []
 
 function MetricRowUpdater(name, type){
   var row
-  this.update = function(){
-    $.getJSON("/metric", {"name" : name},
-    function(d){
-      row.data = d.Value
-      row.draw()
-    })
+  this.update = function(allmap){
+    row.data = allmap[name].Value
+    row.draw()
   }
 
   var show
@@ -224,7 +221,6 @@ function MetricRowUpdater(name, type){
       row = new MeterRow(name)
       break
     }
-    this.update()
   }
 
   this.hide = function(){
@@ -241,9 +237,11 @@ function MetricRowUpdater(name, type){
 
 MetricRowUpdater.updateAll = function(){
   var metrics = MetricRowUpdater.metrics
-  for(var i in metrics){
-    metrics[i].update()
-  }
+  $.getJSON("/all", null, function(d){
+    for(var i in metrics){
+      metrics[i].update(d)
+    }
+  })
 }
 
 function CounterRow(name){
@@ -944,6 +942,7 @@ $(document).ready(function(){
     for(var i in list){
       throwaway.push(new MetricRowUpdater(list[i][0], list[i][1]))
     }
+    MetricRowUpdater.updateAll()
 
     $("#graphs").masonry({
       itemSelector: ".graph",
