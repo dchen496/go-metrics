@@ -113,18 +113,17 @@ func (d *Distribution) SetRangeHint(min, max float64) {
 // a random algorithm to maintain the maximum sample size set in 
 // SetMaxSampleSize.
 func (d *Distribution) Add(v int64) {
+	d.lock.Lock()
 	maxRand := int64(d.populationSize)
 	if maxRand == 0 {
 		d.add(v, time.Now(), 0)
 	} else {
 		d.add(v, time.Now(), uint64(rand.Int63n(maxRand)))
 	}
+	d.lock.Unlock()
 }
 
 func (d *Distribution) add(v int64, now time.Time, remove uint64) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
 	d.populationSize++
 	if d.size() >= d.maxSampleSize {
 		if remove < d.maxSampleSize {
@@ -173,9 +172,8 @@ func (d *Distribution) removeFromPopulation(n *rbtree.Node) {
 
 // Snapshot returns various statistics on the Distribution.
 func (d *Distribution) Snapshot() DistributionSnapshot {
-	d.Prune()
-
-	d.lock.RLock()
+	d.lock.Lock()
+	d.prune(time.Now())
 
 	var lastUpdated time.Time
 	if d.size() != 0 {
@@ -200,7 +198,7 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 		r.Percentiles[i] = d.s.Percentile(v)
 	}
 
-	d.lock.RUnlock()
+	d.lock.Unlock()
 	return r
 }
 
