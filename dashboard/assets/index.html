@@ -133,7 +133,7 @@ function MetricRow(name){
       } else {
         if($.isNumeric(d))
           d = formatFixedLen(d)
-        cell.text(d)
+        cell.html(d)
       }
     })
   }
@@ -337,13 +337,13 @@ function GaugeRow(name){
   var data = this.getDataFunc()
 
   this.draw = function(){
-    var str
-    if(data().Value.length > 80) {
-      str = slice(data().Value, 77) + "..."
-    } else {
-      str = data().Value
+    //wrap text
+    var str = data().Value
+    var wrapped = ""
+    for(var i = 0; i < str.length; i += 100){
+      wrapped += str.slice(i, i+100) + "<br />"
     }
-    this.drawRow([name, str])
+    this.drawRow([name, wrapped])
   }
 
   this.row = d3.select("#gauges").append("tr")
