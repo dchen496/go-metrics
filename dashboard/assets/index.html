@@ -59,7 +59,7 @@
     <div id="metrics">
       <h3>Counters</h3>
       <table id="counters">
-        <tr id="header"><th>Name</th><th>Value</th><th>Updated</th></tr>
+        <tr id="header"><th>Name</th><th>Value</th></tr>
       </table>
       <h3>Distributions</h3>
       <table id="distributions">
@@ -83,7 +83,7 @@
       </table>
       <h3>Gauges</h3>
       <table id="gauges">
-        <tr id="header"><th>Name</th><th>Value</th><th>Updated</th></tr>
+        <tr id="header"><th>Name</th><th>Value</th></tr>
       </table>
       <h3>Meters</h3>
       <table id="meters">
@@ -250,11 +250,9 @@ function CounterRow(name){
   var data = this.getDataFunc()
 
   this.draw = function(){
-    var updated = new Date(data().LastUpdated)
     var row = [
       this.name,
       data().Value,
-      updated.toLocaleTimeString()
     ]
 
     this.drawRow(row)
@@ -265,7 +263,6 @@ function CounterRow(name){
       null,
       this.graphToggle("Value", function(){return data().Value},
         CubismGraph, "yellow"),
-      null
     ]
 
     this.drawRow(row)
@@ -340,14 +337,13 @@ function GaugeRow(name){
   var data = this.getDataFunc()
 
   this.draw = function(){
-    var updated = new Date(data().LastUpdated)
     var str
     if(data().Value.length > 80) {
       str = slice(data().Value, 77) + "..."
     } else {
       str = data().Value
     }
-    this.drawRow([name, str, updated.toLocaleTimeString()])
+    this.drawRow([name, str])
   }
 
   this.row = d3.select("#gauges").append("tr")

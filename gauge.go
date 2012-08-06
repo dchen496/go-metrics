@@ -3,21 +3,18 @@ package metrics
 import (
 	"fmt"
 	"sync"
-	"time"
 )
 
 // Gauge stores a single, instantaneous Gaugable value.
 // It is updated using a stored GaugeFunction.
 type Gauge struct {
-	value       Gaugable
-	function    GaugeFunction
-	lastUpdated time.Time
-	lock        sync.RWMutex
+	value    Gaugable
+	function GaugeFunction
+	lock     sync.RWMutex
 }
 
 type GaugeSnapshot struct {
-	Value       Gaugable
-	LastUpdated time.Time
+	Value Gaugable
 }
 
 type Gaugable interface {
@@ -35,7 +32,6 @@ func newGauge() *Gauge {
 func (g *Gauge) Reset() {
 	g.lock.Lock()
 	g.value = nil
-	g.lastUpdated = time.Time{}
 	g.lock.Unlock()
 }
 
@@ -50,15 +46,10 @@ func (g *Gauge) SetFunction(fn GaugeFunction) {
 // the Gauge as its first argument. It stores the function's
 // return value as the Gauge's value.
 func (g *Gauge) Update() {
-	g.update(time.Now())
-}
-
-func (g *Gauge) update(now time.Time) {
 	g.lock.Lock()
 	if g.function != nil {
 		g.value = g.function()
 	}
-	g.lastUpdated = now
 	g.lock.Unlock()
 }
 
@@ -70,8 +61,7 @@ func (g *Gauge) Snapshot() GaugeSnapshot {
 	g.lock.RLock()
 
 	r := GaugeSnapshot{
-		Value:       g.value,
-		LastUpdated: g.lastUpdated,
+		Value: g.value,
 	}
 
 	g.lock.RUnlock()

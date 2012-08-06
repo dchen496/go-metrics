@@ -26,13 +26,11 @@ func TypeValueMetric(me metrics.Metric) TypeValue {
 	case *metrics.Gauge:
 		snapshot := m.Snapshot()
 		var stringified struct {
-			Value       string
-			LastUpdated time.Time
+			Value string
 		}
 		if snapshot.Value != nil {
 			stringified.Value = snapshot.Value.String()
 		}
-		stringified.LastUpdated = snapshot.LastUpdated
 
 		tv.Type = "gauge"
 		tv.Value = stringified

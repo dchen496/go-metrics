@@ -22,7 +22,7 @@ func testGaugeInit() *Gauge {
 		t.status = true
 		return &t
 	})
-	g.update(testTime)
+	g.Update()
 	return g
 }
 
@@ -33,11 +33,7 @@ func TestGaugeUpdate(t *testing.T) {
 	s := g.Snapshot()
 	value := s.Value.String()
 	if value != expected {
-		t.Errorf("Wrong data in Gauge.Value after autoupdate: expected %s, got %s",
+		t.Errorf("Wrong data in Gauge.Value after update: expected %s, got %s",
 			expected, value)
-	}
-	if s.LastUpdated != testTime {
-		t.Errorf("Counter updated time is to %v, expected %v",
-			s.LastUpdated, testTime)
 	}
 }
