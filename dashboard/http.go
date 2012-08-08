@@ -24,11 +24,11 @@ func (h *HTTPServer) handlerIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPServer) handlerAll(w http.ResponseWriter, r *http.Request) {
-	m := make(map[string]TypeValue)
+	m := make(map[string]typeValue)
 	l := h.registry.ListMetrics()
 
 	for i, metric := range l {
-		m[i] = TypeValueMetric(metric)
+		m[i] = typeValueMetric(metric)
 	}
 
 	resp, err := json.Marshal(m)
@@ -54,12 +54,12 @@ func (h *HTTPServer) handlerMetric(w http.ResponseWriter, r *http.Request) {
 
 	d, ok := metric.(*metrics.Distribution)
 	if ok && r.FormValue("samples") == "true" {
-		tv := TypeValueSamples(d, r.FormValue("begin"),
+		tv := typeValueSamples(d, r.FormValue("begin"),
 			r.FormValue("end"), r.FormValue("limit"))
 
 		resp, err = json.Marshal(tv)
 	} else {
-		tv := TypeValueMetric(metric)
+		tv := typeValueMetric(metric)
 
 		resp, err = json.Marshal(tv)
 	}

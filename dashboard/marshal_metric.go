@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-type TypeValue struct {
+type typeValue struct {
 	Type  string
 	Value interface{}
 }
 
-func TypeValueMetric(me metrics.Metric) TypeValue {
-	var tv TypeValue
+func typeValueMetric(me metrics.Metric) typeValue {
+	var tv typeValue
 
 	switch m := me.(type) {
 	case *metrics.Counter:
@@ -43,10 +43,10 @@ func TypeValueMetric(me metrics.Metric) TypeValue {
 	return tv
 }
 
-func TypeValueSamples(d *metrics.Distribution,
-	beginstr, endstr, limitstr string) TypeValue {
+func typeValueSamples(d *metrics.Distribution,
+	beginstr, endstr, limitstr string) typeValue {
 
-	var tv TypeValue
+	var tv typeValue
 	tv.Type = "distribution_sample"
 
 	var begin, end time.Time
