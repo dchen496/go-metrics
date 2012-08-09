@@ -386,7 +386,7 @@ func (t *Tree) removeFix(n *Node) {
 	n.black = true
 }
 
-// Next returns the node with rank one greater than the 
+// Next returns the node with rank one greater than the
 // current one, or nil if the current node is the last node.
 func (t *Tree) Next(n *Node) *Node {
 	if n == t.none {
@@ -407,7 +407,7 @@ func (t *Tree) Next(n *Node) *Node {
 	return n.parent
 }
 
-// Prev returns the node with rank one less than the 
+// Prev returns the node with rank one less than the
 // current one, or nil if the current node is the first node.
 func (t *Tree) Prev(n *Node) *Node {
 	if n == t.none {
@@ -429,7 +429,7 @@ func (t *Tree) Prev(n *Node) *Node {
 }
 
 // Rank returns the rank of its argument, or the number of nodes
-// with keys less than than that of the argument, plus a 
+// with keys less than than that of the argument, plus a
 // nonnegative integer less than the number of nodes with the same key.
 // Any two distinct nodes have a different rank, even if they share
 // the same key.

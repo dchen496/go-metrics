@@ -1,6 +1,6 @@
 // Dashboard exports metrics over HTTP.
 //
-// The index page is a human-viewable dashboard, with various graphs to 
+// The index page is a human-viewable dashboard, with various graphs to
 // aid visualization.
 //
 // /list lists the metrics currently registered, as a JSON array
@@ -15,7 +15,7 @@
 // if samples is true. begin and end must be encoded as RFC3339 timestamps.
 //
 // The return format is always a JSON object with two keys: Type and Value.
-// Type's value is the same type as the metric (lowercase), or 
+// Type's value is the same type as the metric (lowercase), or
 // "distribution_samples" if the metric is a Distribution and samples is true.
 // Value's value is the serialized version of the metric's snapshot,
 // or an object with a array of integers and a count for Distribution samples.

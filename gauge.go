@@ -54,7 +54,7 @@ func (g *Gauge) Update() {
 }
 
 // Snapshot returns the value of a Gauge.
-// The value is the Gaugable object. If a string is 
+// The value is the Gaugable object. If a string is
 // required, it must be converted manually using the
 // Gaugable's String() method.
 func (g *Gauge) Snapshot() GaugeSnapshot {

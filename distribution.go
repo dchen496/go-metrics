@@ -14,8 +14,8 @@ const (
 )
 
 // The Percentiles slice in a DistributionSnapshot
-// contains the value of these percentiles in a Distribution. 
-// 0.0 is equivalent to minimum, 0.5 is equivalent to median, 
+// contains the value of these percentiles in a Distribution.
+// 0.0 is equivalent to minimum, 0.5 is equivalent to median,
 // and 1.0 is equivalent to maximum.
 var DistributionPercentiles = []float64{
 	0.0, 0.25, 0.5, 0.75, 0.95, 0.99, 0.999, 1.0,
@@ -101,7 +101,7 @@ func (d *Distribution) SetWindow(nsec time.Duration) {
 
 // Setting a range hint for a Distribution has no effect,
 // but it is exported in a DistributionSnapshot, where it may
-// be used externally. For example, if set, the dashboard uses 
+// be used externally. For example, if set, the dashboard uses
 // this hint to size graphs.
 func (d *Distribution) SetRangeHint(min, max float64) {
 	d.lock.Lock()
@@ -109,8 +109,8 @@ func (d *Distribution) SetRangeHint(min, max float64) {
 	d.lock.Unlock()
 }
 
-// Add might insert/replace a sample into a Distribution, following 
-// a random algorithm to maintain the maximum sample size set in 
+// Add might insert/replace a sample into a Distribution, following
+// a random algorithm to maintain the maximum sample size set in
 // SetMaxSampleSize.
 func (d *Distribution) Add(v int64) {
 	d.lock.Lock()
@@ -204,15 +204,15 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 
 // Samples returns up to limit sample elements (unlimited if limit = 0)
 // from the Distribution. These are taken between a time interval
-// specified with begin (inclusive) and end (non-inclusive). 
+// specified with begin (inclusive) and end (non-inclusive).
 // The count is the actual number of samples in the
-// time interval specified. 
+// time interval specified.
 //
-// Special cases: 
+// Special cases:
 // If begin and/or end is nil, then it is assumed to be the earliest possible // time (for begin) or the latest (for end).
-// If the end time is before the begin time, an empty slice and a count of 
+// If the end time is before the begin time, an empty slice and a count of
 // -1 are returned.
-// If the end time is before the Distribution was created/reset, an empty 
+// If the end time is before the Distribution was created/reset, an empty
 // slice and a count of -1 are returned.
 func (d *Distribution) Samples(limit uint64,
 	begin, end *time.Time) (vals []int64, count int64) {
@@ -286,19 +286,19 @@ func (d *Distribution) Samples(limit uint64,
 }
 
 // Robert Floyd's sampling algorithm
-// The returned map will contain (num) randomly chosen, 
+// The returned map will contain (num) randomly chosen,
 // unique values chosen from [0, max).
 //
 // Some explanation: for n in [0, max - num), the probability
 // of n not being chosen is the product of i/(i+1) as i
-// ranges from max - num to max - 1, which simplifies to 
+// ranges from max - num to max - 1, which simplifies to
 // (max - num) / max.
 //
 // For n in [max - num, max) the probability of not being
-// chosen is 1 when i < n, (max - num)/(n + 1) when i = n, 
+// chosen is 1 when i < n, (max - num)/(n + 1) when i = n,
 // and (i)/(i+1) when i > n. Multiplying all these together
 // again results in (max - num) / max for the probability of
-// not being included. 
+// not being included.
 func randCombination(max, num uint64) map[uint64]bool {
 	s := make(map[uint64]bool)
 	for i := max - num; i < max; i++ {

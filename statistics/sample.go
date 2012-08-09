@@ -117,8 +117,8 @@ func (s *Sample) Percentile(p float64) int64 {
 	if p > 1.0 {
 		p = 1.0
 	}
-	//math.Floor is needed to work around 6g issue 3804 
-	//f64 -> u64 does not truncate 
+	//math.Floor is needed to work around 6g issue 3804
+	//f64 -> u64 does not truncate
 	rank := uint64(math.Floor(p*float64(s.Count()-1) + 0.5))
 
 	node := s.values.FindByRank(rank)

@@ -87,7 +87,7 @@ func (r *Rate) TimeConstants() []time.Duration {
 	return m
 }
 
-// zeroth time constant is the instantaneous rate of change, 
+// zeroth time constant is the instantaneous rate of change,
 // the rest are indexed starting from 1
 func (r *Rate) Derivatives() [][]float64 {
 	m := make([][]float64, len(r.derivatives))

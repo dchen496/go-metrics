@@ -5,7 +5,7 @@ import (
 )
 
 // Counter contains a single int64, which may be incremented,
-// decremented or set. 
+// decremented or set.
 type Counter struct {
 	value int64
 	lock  sync.RWMutex

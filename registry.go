@@ -142,25 +142,25 @@ func init() {
 	DefaultRegistry = NewRegistry("default")
 }
 
-// NewCounter creates a counter and registers it with the 
+// NewCounter creates a counter and registers it with the
 // default registry.
 func NewCounter(tyep interface{}, name string) *Counter {
 	return DefaultRegistry.NewCounter(tyep, name)
 }
 
-// NewDistribution creates a distribution and registers it with the 
+// NewDistribution creates a distribution and registers it with the
 // default registry.
 func NewDistribution(tyep interface{}, name string) *Distribution {
 	return DefaultRegistry.NewDistribution(tyep, name)
 }
 
-// NewGauge creates a gauge and registers it with the 
+// NewGauge creates a gauge and registers it with the
 // default registry.
 func NewGauge(tyep interface{}, name string) *Gauge {
 	return DefaultRegistry.NewGauge(tyep, name)
 }
 
-// NewMeter creates a meter and registers it with the 
+// NewMeter creates a meter and registers it with the
 // default registry.
 func NewMeter(tyep interface{}, name string) *Meter {
 	return DefaultRegistry.NewMeter(tyep, name)
