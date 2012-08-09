@@ -1,3 +1,28 @@
+// Dashboard exports metrics over HTTP.
+//
+// The index page is a human-viewable dashboard, with various graphs to 
+// aid visualization.
+//
+// /list lists the metrics currently registered, as a JSON array
+// of arrays, each containing a metric name and its type.
+//
+// /metric returns a JSON representations of metrics.
+// There is one required parameter in the query string:
+//	name: Name of the metric
+// For Distribution metrics, there are four more optional parameters:
+//	samples: A boolean that returns a Distribution's samples if true.
+//	begin, end, limit: These options are passed to Distribution#Samples
+// if samples is true. begin and end must be encoded as RFC3339 timestamps.
+//
+// The return format is always a JSON object with two keys: Type and Value.
+// Type's value is the same type as the metric (lowercase), or 
+// "distribution_samples" if the metric is a Distribution and samples is true.
+// Value's value is the serialized version of the metric's snapshot,
+// or an object with a array of integers and a count for Distribution samples.
+//
+// /all returns JSON representations for all registered metrics in a JSON
+// object, where keys correspond to metric names and values correspond
+// to the metric's JSON object, using the same format as /metric.
 package dashboard
 
 import (
@@ -83,26 +108,6 @@ func (h *HTTPServer) handlerList(w http.ResponseWriter, r *http.Request) {
 
 // NewHTTPServer creates and starts a HTTP server on the specified address
 // for a metrics registry.
-//
-// The root page is a human-viewable dashboard, with various graphs to 
-// aid visualization.
-//
-// /list lists the metrics currently registered, as a JSON array
-// of arrays, each containing a metric name and its type.
-//
-// /metric returns JSON representations of metrics.
-// There is one required parameter in the query string:
-//	name: Name of the metric
-// For Distribution metrics, there are four more optional parameters:
-//	samples: A boolean that returns a Distribution's samples if true.
-//	begin, end, limit: These options are passed to Distribution#Samples
-// if samples is true. begin and end must be encoded as RFC3339 timestamps.
-//
-// The return format is always a JSON object with two keys: Type and Value.
-// Type's value is the same type as the metric (lowercase), or 
-// "distribution_samples" if the metric is a Distribution and samples is true.
-// Value's value is the serialized version of the metric's snapshot,
-// or an object with a array of integers and a count for Distribution samples.
 func NewHTTPServer(r *metrics.Registry, addr string) HTTPServer {
 	h := HTTPServer{registry: r}
 	handler := http.NewServeMux()
