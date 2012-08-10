@@ -48,6 +48,32 @@ func (h *HTTPServer) handlerIndex(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, h.registry)
 }
 
+func (h *HTTPServer) handlerJS(w http.ResponseWriter, r *http.Request) {
+	var s string
+	switch r.FormValue("n") {
+	case "cubism":
+		s = asset("js/cubism.v1.min.js")
+	case "d3":
+		s = asset("js/d3.v2.min.js")
+	case "jquery":
+		s = asset("js/jquery-1.8.0.min.js")
+	case "masonry":
+		s = asset("js/jquery.masonry.min.js")
+	case "science":
+		s = asset("js/science.v1.min.js")
+	case "main":
+		s = asset("js/main.js")
+	case "graphs":
+		s = asset("js/graphs.js")
+	case "licenses":
+		s = asset("js/LICENSES")
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	fmt.Fprint(w, s)
+}
+
 func (h *HTTPServer) handlerAll(w http.ResponseWriter, r *http.Request) {
 	m := make(map[string]typeValue)
 	l := h.registry.ListMetrics()
@@ -115,6 +141,10 @@ func NewHTTPServer(r *metrics.Registry, addr string) HTTPServer {
 	handler.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
 			h.handlerIndex(w, r)
+		})
+	handler.HandleFunc("/js",
+		func(w http.ResponseWriter, r *http.Request) {
+			h.handlerJS(w, r)
 		})
 	handler.HandleFunc("/all",
 		func(w http.ResponseWriter, r *http.Request) {
