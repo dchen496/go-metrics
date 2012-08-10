@@ -47,10 +47,10 @@ func (g *Gauge) SetFunction(fn GaugeFunction) {
 // return value as the Gauge's value.
 func (g *Gauge) Update() {
 	g.lock.Lock()
+	defer g.lock.Unlock()
 	if g.function != nil {
 		g.value = g.function()
 	}
-	g.lock.Unlock()
 }
 
 // Snapshot returns the value of a Gauge.

@@ -42,8 +42,8 @@ func newMeter() *Meter {
 // Reset clears a Meter's values.
 func (m *Meter) Reset() {
 	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.r.Reset()
-	m.lock.Unlock()
 }
 
 func (m *Meter) Inc(v int64) {
@@ -52,8 +52,8 @@ func (m *Meter) Inc(v int64) {
 
 func (m *Meter) inc(v int64, now time.Time) {
 	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.r.Set(m.r.Value()+v, now)
-	m.lock.Unlock()
 }
 
 func (m *Meter) Dec(v int64) {
@@ -66,8 +66,8 @@ func (m *Meter) Set(v int64) {
 
 func (m *Meter) set(v int64, now time.Time) {
 	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.r.Set(v, now)
-	m.lock.Unlock()
 }
 
 // Snapshot returns the Meter's value along with
@@ -78,6 +78,7 @@ func (m *Meter) set(v int64, now time.Time) {
 // 2 = 5 minutes, 3 = 15 minutes).
 func (m *Meter) Snapshot() MeterSnapshot {
 	m.lock.RLock()
+	defer m.lock.RUnlock()
 
 	r := MeterSnapshot{
 		Value:       m.r.Value(),
@@ -85,6 +86,5 @@ func (m *Meter) Snapshot() MeterSnapshot {
 		Derivatives: m.r.Derivatives(),
 	}
 
-	m.lock.RUnlock()
 	return r
 }

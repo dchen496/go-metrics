@@ -90,6 +90,8 @@ func (r *Registry) Name() string {
 // the zeroth index and its type in the first.
 func (r *Registry) List() [][2]string {
 	r.lock.RLock()
+	defer r.lock.RUnlock()
+
 	list := make([][2]string, len(r.metrics))
 	i := 0
 	for name, metric := range r.metrics {
@@ -108,19 +110,19 @@ func (r *Registry) List() [][2]string {
 		list[i][1] = t
 		i++
 	}
-	r.lock.RUnlock()
 	return list
 }
 
 // ListMetrics returns a map with keys representing metric names
 // and values containing the corresponding metric.
 func (r *Registry) ListMetrics() map[string]Metric {
-	list := make(map[string]Metric)
 	r.lock.RLock()
+	defer r.lock.RUnlock()
+
+	list := make(map[string]Metric)
 	for name, metric := range r.metrics {
 		list[name] = metric
 	}
-	r.lock.RUnlock()
 	return list
 }
 
@@ -131,8 +133,9 @@ func (r *Registry) Find(tyep interface{}, name string) Metric {
 
 func (r *Registry) FindS(fullname string) Metric {
 	r.lock.RLock()
+	defer r.lock.RUnlock()
+
 	ret := r.metrics[fullname]
-	r.lock.RUnlock()
 	return ret
 }
 

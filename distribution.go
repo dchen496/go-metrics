@@ -63,10 +63,11 @@ func newDistribution() *Distribution {
 // Reset deletes all samples and statistics from a Distribution.
 func (d *Distribution) Reset() {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	d.s = statistics.NewSample()
 	d.populationSize = 0
 	d.times = rbtree.New()
-	d.lock.Unlock()
 }
 
 func (d *Distribution) size() uint64 {
@@ -78,13 +79,14 @@ func (d *Distribution) size() uint64 {
 // The default is 1000 elements.
 func (d *Distribution) SetMaxSampleSize(n uint64) {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	d.maxSampleSize = n
 	for d.size() > d.maxSampleSize {
 		r := rand.Int63n(int64(d.size()))
 		node := d.times.FindByRank(uint64(r))
 		d.removeFromPopulation(node)
 	}
-	d.lock.Unlock()
 }
 
 // SetWindow sets the length of time for which a element
@@ -94,9 +96,10 @@ func (d *Distribution) SetMaxSampleSize(n uint64) {
 // The default is 10 minutes.
 func (d *Distribution) SetWindow(nsec time.Duration) {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	d.window = nsec
 	d.prune(time.Now())
-	d.lock.Unlock()
 }
 
 // Setting a range hint for a Distribution has no effect,
@@ -105,8 +108,9 @@ func (d *Distribution) SetWindow(nsec time.Duration) {
 // this hint to size graphs.
 func (d *Distribution) SetRangeHint(min, max float64) {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	d.rangeHint = [2]float64{min, max}
-	d.lock.Unlock()
 }
 
 // Add might insert/replace a sample into a Distribution, following
@@ -114,13 +118,14 @@ func (d *Distribution) SetRangeHint(min, max float64) {
 // SetMaxSampleSize.
 func (d *Distribution) Add(v int64) {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	maxRand := int64(d.populationSize)
 	if maxRand == 0 {
 		d.add(v, time.Now(), 0)
 	} else {
 		d.add(v, time.Now(), uint64(rand.Int63n(maxRand)))
 	}
-	d.lock.Unlock()
 }
 
 func (d *Distribution) add(v int64, now time.Time, remove uint64) {
@@ -143,8 +148,9 @@ func (d *Distribution) add(v int64, now time.Time, remove uint64) {
 // to the length of time set by SetWindow.
 func (d *Distribution) Prune() {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	d.prune(time.Now())
-	d.lock.Unlock()
 }
 
 func (d *Distribution) prune(now time.Time) {
@@ -173,6 +179,8 @@ func (d *Distribution) removeFromPopulation(n *rbtree.Node) {
 // Snapshot returns various statistics on the Distribution.
 func (d *Distribution) Snapshot() DistributionSnapshot {
 	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	d.prune(time.Now())
 
 	var lastUpdated time.Time
@@ -198,7 +206,6 @@ func (d *Distribution) Snapshot() DistributionSnapshot {
 		r.Percentiles[i] = d.s.Percentile(v)
 	}
 
-	d.lock.Unlock()
 	return r
 }
 
